@@ -1,6 +1,9 @@
 <?php
 
-abstract class ActiveDocument extends CModel {
+namespace ext\activedocument;
+use Yii, CModel, CEvent, CModelEvent;
+
+abstract class Document extends CModel {
 
     public static $conn;
     private static $_models = array();
@@ -13,7 +16,7 @@ abstract class ActiveDocument extends CModel {
             return self::$_models[$className];
         else {
             $model = self::$_models[$className] = new $className(null);
-			$model->_md=new ActiveDocumentMetaData($model);
+			$model->_md=new DocumentMetaData($model);
             $model->attachBehaviors($model->behaviors());
             return $model;
         }
@@ -127,15 +130,18 @@ abstract class ActiveDocument extends CModel {
         #return array_keys($this->getMetaData()->columns);
     }
 
+    /**
+     * @return \ext\activedocument\Connection
+     */
     public function getConnection() {
         if (self::$conn !== null)
             return self::$conn;
         else {
             self::$conn = Yii::app()->getComponent('conn');
-            if (self::$conn instanceof ActiveConnection)
+            if (self::$conn instanceof Connection)
                 return self::$conn;
             else
-                throw new ActiveException(Yii::t('yii', 'Active Document requires a "conn" ActiveConnection application component.'));
+                throw new Exception(Yii::t('yii', 'Active Document requires a "conn" Connection application component.'));
         }
     }
 
@@ -286,9 +292,9 @@ abstract class ActiveDocument extends CModel {
 
     public function insert($attributes=null) {
         if (!$this->getIsNewRecord())
-            throw new ActiveException(Yii::t('yii', 'The active document cannot be inserted because it is not new.'));
+            throw new Exception(Yii::t('yii', 'The document cannot be inserted because it is not new.'));
         if ($this->beforeSave()) {
-            Yii::trace(get_class($this) . '.insert()', 'ext.active-document.' . get_class($this));
+            Yii::trace(get_class($this) . '.insert()', 'ext.activedocument.' . get_class($this));
             $builder = $this->getCommandBuilder();
             $command = $builder->createInsertCommand($this->containerName(), $this->getAttributes($attributes));
             if ($command->execute()) {
@@ -317,9 +323,9 @@ abstract class ActiveDocument extends CModel {
 
     public function update($attributes=null) {
         if ($this->getIsNewRecord())
-            throw new ActiveException(Yii::t('yii', 'The active document cannot be updated because it is new.'));
+            throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
         if ($this->beforeSave()) {
-            Yii::trace(get_class($this) . '.update()', 'ext.active-document.' . get_class($this));
+            Yii::trace(get_class($this) . '.update()', 'ext.activedocument.' . get_class($this));
             if ($this->_pk === null)
                 $this->_pk = $this->getPrimaryKey();
             $this->updateByPk($this->getOldPrimaryKey(), $this->getAttributes($attributes));
@@ -333,7 +339,7 @@ abstract class ActiveDocument extends CModel {
 
     public function saveAttributes($attributes) {
         if (!$this->getIsNewRecord()) {
-            Yii::trace(get_class($this) . '.saveAttributes()', 'ext.active-document.' . get_class($this));
+            Yii::trace(get_class($this) . '.saveAttributes()', 'ext.activedocument.' . get_class($this));
             $values = array();
             foreach ($attributes as $name => $value) {
                 if (is_integer($name))
@@ -351,11 +357,11 @@ abstract class ActiveDocument extends CModel {
                 return false;
         }
         else
-            throw new ActiveException(Yii::t('yii', 'The active document cannot be updated because it is new.'));
+            throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
     }
 
     public function saveCounters($counters) {
-        Yii::trace(get_class($this) . '.saveCounters()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.saveCounters()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $table = $this->getTableSchema();
         $criteria = $builder->createPkCriteria($table, $this->getOldPrimaryKey());
@@ -371,7 +377,7 @@ abstract class ActiveDocument extends CModel {
 
     public function delete() {
         if (!$this->getIsNewRecord()) {
-            Yii::trace(get_class($this) . '.delete()', 'ext.active-document.' . get_class($this));
+            Yii::trace(get_class($this) . '.delete()', 'ext.activedocument.' . get_class($this));
             if ($this->beforeDelete()) {
                 $result = $this->deleteByPk($this->getPrimaryKey()) > 0;
                 $this->afterDelete();
@@ -381,11 +387,11 @@ abstract class ActiveDocument extends CModel {
                 return false;
         }
         else
-            throw new ActiveException(Yii::t('yii', 'The active document cannot be deleted because it is new.'));
+            throw new Exception(Yii::t('yii', 'The document cannot be deleted because it is new.'));
     }
 
     public function refresh() {
-        Yii::trace(get_class($this) . '.refresh()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.' . get_class($this));
         if (!$this->getIsNewRecord() && ($document = $this->findByPk($this->getPrimaryKey())) !== null) {
             $this->_attributes = array();
             $this->_related = array();
@@ -454,47 +460,47 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function find($condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.find()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.find()', 'ext.activedocument.' . get_class($this));
         $criteria = $this->getCommandBuilder()->createCriteria($condition, $params);
         return $this->query($criteria);
     }
 
     public function findAll($condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.findAll()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.' . get_class($this));
         $criteria = $this->getCommandBuilder()->createCriteria($condition, $params);
         return $this->query($criteria, true);
     }
 
     public function findByPk($pk, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.findByPk()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
         $prefix = $this->getTableAlias(true) . '.';
         $criteria = $this->getCommandBuilder()->createPkCriteria($this->getTableSchema(), $pk, $condition, $params, $prefix);
         return $this->query($criteria);
     }
 
     public function findAllByPk($pk, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.findAllByPk()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.findAllByPk()', 'ext.activedocument.' . get_class($this));
         $prefix = $this->getTableAlias(true) . '.';
         $criteria = $this->getCommandBuilder()->createPkCriteria($this->getTableSchema(), $pk, $condition, $params, $prefix);
         return $this->query($criteria, true);
     }
 
     public function findByAttributes($attributes, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.findByAttributes()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.findByAttributes()', 'ext.activedocument.' . get_class($this));
         $prefix = $this->getTableAlias(true) . '.';
         $criteria = $this->getCommandBuilder()->createColumnCriteria($this->getTableSchema(), $attributes, $condition, $params, $prefix);
         return $this->query($criteria);
     }
 
     public function findAllByAttributes($attributes, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.findAllByAttributes()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.findAllByAttributes()', 'ext.activedocument.' . get_class($this));
         $prefix = $this->getTableAlias(true) . '.';
         $criteria = $this->getCommandBuilder()->createColumnCriteria($this->getTableSchema(), $attributes, $condition, $params, $prefix);
         return $this->query($criteria, true);
     }
 
     public function count($condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.count()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.count()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $criteria = $builder->createCriteria($condition, $params);
         $this->applyScopes($criteria);
@@ -508,7 +514,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function countByAttributes($attributes, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.countByAttributes()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.countByAttributes()', 'ext.activedocument.' . get_class($this));
         $prefix = $this->getTableAlias(true) . '.';
         $builder = $this->getCommandBuilder();
         $criteria = $builder->createColumnCriteria($this->getTableSchema(), $attributes, $condition, $params, $prefix);
@@ -523,7 +529,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function exists($condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.exists()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.exists()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $criteria = $builder->createCriteria($condition, $params);
         $table = $this->getTableSchema();
@@ -534,7 +540,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function updateByPk($pk, $attributes, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.updateByPk()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.updateByPk()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $table = $this->getTableSchema();
         $criteria = $builder->createPkCriteria($table, $pk, $condition, $params);
@@ -543,7 +549,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function updateAll($attributes, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.updateAll()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.updateAll()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $criteria = $builder->createCriteria($condition, $params);
         $command = $builder->createUpdateCommand($this->getTableSchema(), $attributes, $criteria);
@@ -551,7 +557,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function updateCounters($counters, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.updateCounters()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.updateCounters()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $criteria = $builder->createCriteria($condition, $params);
         $command = $builder->createUpdateCounterCommand($this->getTableSchema(), $counters, $criteria);
@@ -559,7 +565,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function deleteByPk($pk, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.deleteByPk()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.deleteByPk()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $criteria = $builder->createPkCriteria($this->getTableSchema(), $pk, $condition, $params);
         $command = $builder->createDeleteCommand($this->getTableSchema(), $criteria);
@@ -567,7 +573,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function deleteAll($condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.deleteAll()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.deleteAll()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $criteria = $builder->createCriteria($condition, $params);
         $command = $builder->createDeleteCommand($this->getTableSchema(), $criteria);
@@ -575,7 +581,7 @@ abstract class ActiveDocument extends CModel {
     }
 
     public function deleteAllByAttributes($attributes, $condition='', $params=array()) {
-        Yii::trace(get_class($this) . '.deleteAllByAttributes()', 'ext.active-document.' . get_class($this));
+        Yii::trace(get_class($this) . '.deleteAllByAttributes()', 'ext.activedocument.' . get_class($this));
         $builder = $this->getCommandBuilder();
         $table = $this->getTableSchema();
         $criteria = $builder->createColumnCriteria($table, $attributes, $condition, $params);

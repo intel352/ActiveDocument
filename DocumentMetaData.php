@@ -1,6 +1,9 @@
 <?php
 
-class ActiveDocumentMetaData {
+namespace ext\activedocument;
+use Yii;
+
+class DocumentMetaData {
 
     public $containerMeta;
     public $attributes;
@@ -8,12 +11,12 @@ class ActiveDocumentMetaData {
     public $attributeDefaults = array();
     private $_model;
 
-    public function __construct(ActiveDocument $model) {
+    public function __construct(Document $model) {
         $this->_model = $model;
 
         $containerName = $model->containerName();
-        if (($container = $model->getConnection()->getSchema()->getTable($containerName)) === null)
-            throw new ActiveException(Yii::t('yii', 'The container "{container}" for active document class "{class}" cannot be found in the storage media.', array('{class}' => get_class($model), '{container}' => $containerName)));
+        if (($container = $model->getConnection()->getSchema()->getContainer($containerName)) === null)
+            throw new Exception(Yii::t('yii', 'The container "{container}" for active document class "{class}" cannot be found in the storage media.', array('{class}' => get_class($model), '{container}' => $containerName)));
         if ($container->primaryKey === null)
             $container->primaryKey = $model->primaryKey();
         $this->containerMeta = $container;

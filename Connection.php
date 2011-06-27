@@ -1,6 +1,9 @@
 <?php
 
-class ActiveConnection extends CApplicationComponent {
+namespace ext\activedocument;
+use Yii, CApplicationComponent, CLogger;
+
+class Connection extends CApplicationComponent {
 
     const PARAM_NULL=0;
     const PARAM_BOOL=1;
@@ -10,9 +13,9 @@ class ActiveConnection extends CApplicationComponent {
     const PARAM_OBJ=5;
 
     public $driver;
-    /* public $schemaCachingDuration=0;
-      public $schemaCachingExclude=array();
-      public $schemaCacheID='cache'; */
+    public $schemaCachingDuration=0;
+    public $schemaCachingExclude=array();
+    public $schemaCacheID='acocache';
     /* public $queryCachingDuration=0;
       public $queryCachingDependency;
       public $queryCachingCount=0;
@@ -25,8 +28,8 @@ class ActiveConnection extends CApplicationComponent {
     /* public $initSQLs; */
     public $driverMap = array(
         'riak' => array(
-            'adapter'=>'RiakActiveAdapter',
-            'schema'=>'RiakActiveSchema',
+            'adapter'=>'\ext\activedocument\drivers\riak\Adapter',
+            'schema'=>'\ext\activedocument\drivers\riak\Schema',
         ),
     );
     private $_attributes = array();
@@ -35,9 +38,9 @@ class ActiveConnection extends CApplicationComponent {
     private $_transaction;
     private $_schema;
 
-    public function __construct($driver='', $settings=array()) {
+    public function __construct($driver='', $attributes=array()) {
         $this->driver = $driver;
-        $this->driverSettings = $settings;
+        $this->attributes = $attributes;
     }
 
     public function __sleep() {
@@ -47,6 +50,14 @@ class ActiveConnection extends CApplicationComponent {
 
     public function init() {
         parent::init();
+        /**
+         * Find drivers to be imported
+         */
+        $drivers=glob(__DIR__.'/drivers/*',GLOB_ONLYDIR);
+        array_map(function($dir){
+            $driver=basename($dir);
+            Yii::import('ext.activedocument.drivers.'.$driver.'.*');
+        }, $drivers);
         if ($this->autoConnect)
             $this->setActive(true);
     }
@@ -75,25 +86,25 @@ class ActiveConnection extends CApplicationComponent {
     protected function open() {
         if ($this->_aco === null) {
             if (empty($this->driver))
-                throw new ActiveException(Yii::t('yii', 'ActiveConnection.driver cannot be empty.'));
+                throw new Exception(Yii::t('yii', 'ActiveConnection.driver cannot be empty.'));
             try {
-                Yii::trace('Opening data storage connection', 'ext.active-document.ActiveConnection');
+                Yii::trace('Opening data storage connection', 'ext.activedocument.ActiveConnection');
                 $this->_aco = $this->createConnectionInstance();
                 $this->initConnection($this->_aco);
                 $this->_active = true;
             } catch (ACOException $e) {
                 if (YII_DEBUG) {
-                    throw new ActiveException(Yii::t('yii', 'ActiveConnection failed to open the data storage connection: {error}', array('{error}' => $e->getMessage())), (int) $e->getCode(), $e->errorInfo);
+                    throw new Exception(Yii::t('yii', 'ActiveConnection failed to open the data storage connection: {error}', array('{error}' => $e->getMessage())), (int) $e->getCode(), $e->errorInfo);
                 } else {
                     Yii::log($e->getMessage(), CLogger::LEVEL_ERROR, 'exception.ActiveException');
-                    throw new ActiveException(Yii::t('yii', 'ActiveConnection failed to open the data storage connection.'), (int) $e->getCode(), $e->errorInfo);
+                    throw new Exception(Yii::t('yii', 'ActiveConnection failed to open the data storage connection.'), (int) $e->getCode(), $e->errorInfo);
                 }
             }
         }
     }
 
     protected function close() {
-        Yii::trace('Closing data storage connection', 'ext.active-document.ActiveConnection');
+        Yii::trace('Closing data storage connection', 'ext.activedocument.ActiveConnection');
         $this->_aco = null;
         $this->_active = false;
         $this->_schema = null;
@@ -137,15 +148,17 @@ class ActiveConnection extends CApplicationComponent {
         return $this->_transaction = new CDbTransaction($this);
     }
 
+    /**
+     * @return \ext\activedocument\ActiveSchema
+     */
     public function getSchema() {
         if ($this->_schema !== null)
             return $this->_schema;
         else {
-            $driver = $this->getDriverName();
-            if (isset($this->driverMap[$driver]))
-                return $this->_schema = Yii::createComponent($this->driverMap[$driver], $this);
+            if (isset($this->driverMap[$this->driver]['schema']))
+                return $this->_schema = new $this->driverMap[$this->driver]['schema']($this);
             else
-                throw new ActiveException(Yii::t('yii', 'ActiveConnection does not support reading schema for {driver} database.', array('{driver}' => $driver)));
+                throw new Exception(Yii::t('yii', 'ActiveConnection does not support reading schema for {driver} database.', array('{driver}' => $this->driver)));
         }
     }
 
@@ -202,11 +215,6 @@ class ActiveConnection extends CApplicationComponent {
         return $this->setAttribute(ACO::ATTR_PERSISTENT, $value);
     }
 
-    public function getDriverName() {
-        if (($pos = strpos($this->connectionString, ':')) !== false)
-            return strtolower(substr($this->connectionString, 0, $pos));
-    }
-
     public function getClientVersion() {
         return $this->getAttribute(ACO::ATTR_CLIENT_VERSION);
     }
@@ -254,10 +262,10 @@ class ActiveConnection extends CApplicationComponent {
 
     public function getStats() {
         $logger = Yii::getLogger();
-        $timings = $logger->getProfilingResults(null, 'ext.active-document.CDbCommand.query');
+        $timings = $logger->getProfilingResults(null, 'ext.activedocument.CDbCommand.query');
         $count = count($timings);
         $time = array_sum($timings);
-        $timings = $logger->getProfilingResults(null, 'ext.active-document.CDbCommand.execute');
+        $timings = $logger->getProfilingResults(null, 'ext.activedocument.CDbCommand.execute');
         $count+=count($timings);
         $time+=array_sum($timings);
         return array($count, $time);
