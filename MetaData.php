@@ -9,7 +9,7 @@ class MetaData extends CComponent {
     #public $relations=array();
     public $attributeDefaults = array();
     /**
-     * @var \ext\activedocument\Model
+     * @var \ext\activedocument\Document
      */
     private $_model;
     /**
@@ -17,7 +17,7 @@ class MetaData extends CComponent {
      */
     private $_container;
 
-    public function __construct(Model $model) {
+    public function __construct(Document $model) {
         $this->_model = $model;
 
         if (($container = $model->getContainer()) === null)
@@ -25,10 +25,10 @@ class MetaData extends CComponent {
         $this->_container = $container;
         $this->attributes = $this->loadAttributes();
 
-        foreach ($this->attributes as $name => $attribute) {
+        /*foreach ($this->attributes as $name => $attribute) {
             if ($attribute->defaultValue !== null)
                 $this->attributeDefaults[$name] = $attribute->defaultValue;
-        }
+        }*/
 
         /* foreach($model->relations() as $name=>$config)
           {
@@ -47,7 +47,15 @@ class MetaData extends CComponent {
         $attributes = $this->_container->getAttributes();
         if(empty($attributes)) {
             $reflection = new \ReflectionClass(get_class($this->_model));
-            $attributes = array_keys($reflection->getProperties(\ReflectionProperty::IS_PUBLIC));
+            $props = $reflection->getProperties(\ReflectionProperty::IS_PUBLIC);
+            foreach($props as $prop) {
+                /**
+                 * Exclude public static properties
+                 * @todo Need attr "definition"
+                 */
+                if(!$prop->isStatic())
+                    $attributes[$prop->getName()] = $prop->getName();
+            }
         }
         return $attributes;
     }

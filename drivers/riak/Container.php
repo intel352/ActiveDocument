@@ -13,7 +13,7 @@ class Container extends \ext\activedocument\Container {
      * @return \riiak\Bucket
      */
     protected function loadContainer() {
-        return $this->_connection->bucket($this->_name);
+        return $this->_adapter->getStorageInstance()->bucket($this->_name);
     }
 
     public function setProperty($key, $value) {
@@ -54,16 +54,27 @@ class Container extends \ext\activedocument\Container {
     
     public function deleteKeys(array $keys) {
         foreach($keys as $key)
-            $this->getDataObject($key)->delete();
+            $this->getObject($key)->delete();
         return true;
+    }
+    
+    /**
+     * @param string $key
+     * @param mixed $data
+     * @return \ext\activedocument\drivers\riak\Object
+     */
+    public function createObject($key=null, $data=null) {
+        return $this->getObject($key, $data, true);
     }
 
     /**
      * @param string $key
+     * @param mixed $data
+     * @param bool $new
      * @return \ext\activedocument\drivers\riak\Object
      */
-    public function getDataObject($key) {
-        return new Object($this, $key);
+    public function getObject($key=null, $data=null, $new=false) {
+        return new Object($this, $key, $data, $new);
     }
     
     public function getAttributes() {

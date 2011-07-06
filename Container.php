@@ -33,7 +33,9 @@ abstract class Container extends CComponent {
     
     abstract public function deleteKeys(array $keys);
 
-    abstract public function getDataObject($key);
+    abstract public function createObject($key=null, $data=null);
+    
+    abstract public function getObject($key=null);
     
     abstract public function getAttributes();
 

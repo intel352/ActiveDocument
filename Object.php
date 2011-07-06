@@ -1,6 +1,7 @@
 <?php
 
 namespace ext\activedocument;
+
 use \CComponent;
 
 abstract class Object extends \CComponent {
@@ -24,23 +25,35 @@ abstract class Object extends \CComponent {
     /**
      * @var mixed
      */
-    private $_data;
+    public $data;
     protected $_objectInstance;
 
-    abstract protected function loadObjectInstance();
-    abstract public function store();
-    abstract public function delete();
-    abstract public function reload();
+    abstract protected function loadObjectInstance($new=true);
 
-    public function __construct(Container $container, $key=null, $data=null) {
+    abstract public function store();
+
+    abstract public function delete();
+
+    abstract public function reload();
+    
+    abstract protected function getObjectData();
+    
+    abstract protected function setObjectData($data);
+
+    public function __construct(Container $container, $key=null, $data=null, $new=true) {
         $this->_container = $container;
         $this->_adapter = $container->getAdapter();
         $this->_connection = $container->getConnection();
         $this->_key = $key;
-        $this->_data = $data;
-        $this->_objectInstance = $this->loadObjectInstance();
+        $this->_objectInstance = $this->loadObjectInstance($new);
+        /**
+         * Sync data
+         */
+        if($data!==null)
+            $this->setObjectData($data);
+        $this->data = $this->getObjectData();
     }
-    
+
     /**
      * @return \ext\activedocument\Container
      */
@@ -61,24 +74,17 @@ abstract class Object extends \CComponent {
     public function getAdapter() {
         return $this->_adapter;
     }
-    
+
     public function getObjectInstance() {
         return $this->_objectInstance;
     }
-    
+
     public function getKey() {
         return $this->_key;
     }
-    
+
     public function setKey($value) {
         $this->_key = $value;
     }
-    
-    public function getData() {
-        return $this->_data;
-    }
-    
-    public function setData($value) {
-        $this->_data = $value;
-    }
+
 }
