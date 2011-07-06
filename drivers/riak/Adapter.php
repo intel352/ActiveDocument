@@ -1,66 +1,33 @@
 <?php
 
 namespace ext\activedocument\drivers\riak;
+use \Yii;
+Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.riiak'));
 
+/**
+ * @property string $host
+ * @property string|int $port
+ * @property bool $ssl
+ * @property string $prefix
+ * @property string $mapredPrefix
+ * @property string $clientId
+ * @property int $r
+ * @property int $w
+ * @property int $dw
+ */
 class Adapter extends \ext\activedocument\Adapter {
-    public function __construct() {
-        parent::__construct();
+    
+    protected function loadStorageInstance(array $attributes=null) {
+        $storageInstance = new \riiak\Riiak;
+        if(!empty($attributes))
+            foreach($attributes as $key=>$value)
+                $storageInstance->$key=$value;
+        $storageInstance->init();
+        return $storageInstance;
     }
     
-    public function createContainer($name) {
-        ;
-    }
-    
-    public function loadContainer($name) {
-        ;
-    }
-    
-    public function loadContainers($containers=array()) {
-        ;
-    }
-    
-    public function saveContainer($name, $data) {
-        ;
-    }
-    
-    public function saveContainers($name, $containers=array()) {
-        ;
-    }
-    
-    public function deleteContainer($name) {
-        ;
-    }
-    
-    public function deleteContainers($containers=array()) {
-        ;
-    }
-    
-    public function createDataObject($container, $key, $data) {
-        ;
-    }
-    
-    public function loadDataObject($container, $key) {
-        ;
-    }
-    
-    public function saveDataObject($container, $key, $data) {
-        ;
-    }
-    
-    public function saveDataObjects($container, $dataObjects=array()) {
-        ;
-    }
-    
-    public function deleteDataObject($container, $key) {
-        ;
-    }
-    
-    public function deleteDataObjects($container, $keys=array()) {
-        ;
-    }
-    
-    public function lastInsertId() {
-        ;
+    protected function loadContainer($name) {
+        return new Container($this, $name);
     }
     
 }

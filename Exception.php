@@ -1,7 +1,7 @@
 <?php
 
 namespace ext\activedocument;
-use CException;
+use \CException;
 
 class Exception extends CException {
     //put your code here

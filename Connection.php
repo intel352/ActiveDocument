@@ -1,21 +1,14 @@
 <?php
 
 namespace ext\activedocument;
-use Yii, CApplicationComponent, CLogger;
+use \Yii, \CApplicationComponent, \CLogger;
 
 class Connection extends CApplicationComponent {
-
-    const PARAM_NULL=0;
-    const PARAM_BOOL=1;
-    const PARAM_INT=2;
-    const PARAM_STR=3;
-    const PARAM_ARR=4;
-    const PARAM_OBJ=5;
 
     public $driver;
     public $schemaCachingDuration=0;
     public $schemaCachingExclude=array();
-    public $schemaCacheID='acocache';
+    public $schemaCacheID='activecache';
     /* public $queryCachingDuration=0;
       public $queryCachingDependency;
       public $queryCachingCount=0;
@@ -27,20 +20,19 @@ class Connection extends CApplicationComponent {
     public $containerPrefix;
     /* public $initSQLs; */
     public $driverMap = array(
-        'riak' => array(
-            'adapter'=>'\ext\activedocument\drivers\riak\Adapter',
-            'schema'=>'\ext\activedocument\drivers\riak\Schema',
-        ),
+        'riak' => '\ext\activedocument\drivers\riak\Adapter',
     );
-    private $_attributes = array();
+    protected $_attributes = array();
     private $_active = false;
-    private $_aco;
     private $_transaction;
-    private $_schema;
+    /**
+     * @var \ext\activedocument\Adapter
+     */
+    protected $_adapter;
 
-    public function __construct($driver='', $attributes=array()) {
+    public function __construct($driver='', array $attributes=array()) {
         $this->driver = $driver;
-        $this->attributes = $attributes;
+        $this->_attributes = $attributes;
     }
 
     public function __sleep() {
@@ -50,14 +42,6 @@ class Connection extends CApplicationComponent {
 
     public function init() {
         parent::init();
-        /**
-         * Find drivers to be imported
-         */
-        $drivers=glob(__DIR__.'/drivers/*',GLOB_ONLYDIR);
-        array_map(function($dir){
-            $driver=basename($dir);
-            Yii::import('ext.activedocument.drivers.'.$driver.'.*');
-        }, $drivers);
         if ($this->autoConnect)
             $this->setActive(true);
     }
@@ -84,49 +68,35 @@ class Connection extends CApplicationComponent {
       } */
 
     protected function open() {
-        if ($this->_aco === null) {
+        if ($this->_adapter === null) {
             if (empty($this->driver))
-                throw new Exception(Yii::t('yii', 'ActiveConnection.driver cannot be empty.'));
+                throw new Exception(Yii::t('yii', 'Connection.driver cannot be empty.'));
             try {
-                Yii::trace('Opening data storage connection', 'ext.activedocument.ActiveConnection');
-                $this->_aco = $this->createConnectionInstance();
-                $this->initConnection($this->_aco);
+                Yii::trace('Opening data storage connection', 'ext.activedocument.Connection');
+                $this->_adapter = $this->createConnectionInstance();
                 $this->_active = true;
-            } catch (ACOException $e) {
+            } catch (Exception $e) {
                 if (YII_DEBUG) {
-                    throw new Exception(Yii::t('yii', 'ActiveConnection failed to open the data storage connection: {error}', array('{error}' => $e->getMessage())), (int) $e->getCode(), $e->errorInfo);
+                    throw new Exception(Yii::t('yii', 'Connection failed to open the data storage connection: {error}', array('{error}' => $e->getMessage())), (int) $e->getCode(), $e->errorInfo);
                 } else {
-                    Yii::log($e->getMessage(), CLogger::LEVEL_ERROR, 'exception.ActiveException');
-                    throw new Exception(Yii::t('yii', 'ActiveConnection failed to open the data storage connection.'), (int) $e->getCode(), $e->errorInfo);
+                    Yii::log($e->getMessage(), CLogger::LEVEL_ERROR, 'exception.ActiveDocument.Exception');
+                    throw new Exception(Yii::t('yii', 'Connection failed to open the data storage connection.'), (int) $e->getCode(), $e->errorInfo);
                 }
             }
         }
     }
 
     protected function close() {
-        Yii::trace('Closing data storage connection', 'ext.activedocument.ActiveConnection');
-        $this->_aco = null;
+        Yii::trace('Closing data storage connection', 'ext.activedocument.Connection');
+        $this->_adapter = null;
         $this->_active = false;
-        $this->_schema = null;
     }
 
     protected function createConnectionInstance() {
-        $driver = $this->driverMap[$this->driver]['adapter'];
-        return Yii::createComponent(array_merge($this->_attributes,array('class'=>$driver)));
-    }
-
-    protected function initConnection($aco) {
-        /*$aco->setAttribute(ACO::ATTR_ERRMODE, ACO::ERRMODE_EXCEPTION);
-        if ($this->emulatePrepare && constant('ACO::ATTR_EMULATE_PREPARES'))
-            $aco->setAttribute(ACO::ATTR_EMULATE_PREPARES, true);
-        if ($this->initSQLs !== null) {
-            foreach ($this->initSQLs as $sql)
-                $aco->exec($sql);
-        }*/
-    }
-
-    public function getAcoInstance() {
-        return $this->_aco;
+        if (isset($this->driverMap[$this->driver]))
+            return new $this->driverMap[$this->driver]($this, $this->_attributes);
+        else
+            throw new Exception(Yii::t('yii', 'Connection does not support {driver} storage adapter.', array('{driver}' => $this->driver)));
     }
 
     public function createCommand($query=null) {
@@ -144,46 +114,22 @@ class Connection extends CApplicationComponent {
 
     public function beginTransaction() {
         $this->setActive(true);
-        $this->_aco->beginTransaction();
+        $this->_adapter->beginTransaction();
         return $this->_transaction = new CDbTransaction($this);
     }
 
     /**
-     * @return \ext\activedocument\ActiveSchema
+     * @return \ext\activedocument\Adapter
      */
-    public function getSchema() {
-        if ($this->_schema !== null)
-            return $this->_schema;
-        else {
-            if (isset($this->driverMap[$this->driver]['schema']))
-                return $this->_schema = new $this->driverMap[$this->driver]['schema']($this);
-            else
-                throw new Exception(Yii::t('yii', 'ActiveConnection does not support reading schema for {driver} database.', array('{driver}' => $this->driver)));
-        }
+    public function getAdapter() {
+        return $this->_adapter;
     }
 
     public function getCommandBuilder() {
-        return $this->getSchema()->getCommandBuilder();
+        return $this->getAdapter()->getCommandBuilder();
     }
 
-    public function getLastInsertID($sequenceName='') {
-        $this->setActive(true);
-        return $this->_aco->lastInsertId($sequenceName);
-    }
-
-    public function getAcoType($type) {
-        static $map = array(
-        'NULL' => self::PARAM_NULL,
-        'boolean' => self::PARAM_BOOL,
-        'integer' => self::PARAM_INT,
-        'string' => self::PARAM_STR,
-        'array' => self::PARAM_ARR,
-        'object' => self::PARAM_OBJ,
-        );
-        return isset($map[$type]) ? $map[$type] : self::PARAM_STR;
-    }
-
-    public function getColumnCase() {
+    /*public function getColumnCase() {
         return $this->getAttribute(ACO::ATTR_CASE);
     }
 
@@ -237,16 +183,16 @@ class Connection extends CApplicationComponent {
 
     public function getTimeout() {
         return $this->getAttribute(ACO::ATTR_TIMEOUT);
-    }
+    }*/
 
     public function getAttribute($name) {
         $this->setActive(true);
-        return $this->_aco->getAttribute($name);
+        return $this->_adapter->getAttribute($name);
     }
 
     public function setAttribute($name, $value) {
-        if ($this->_aco instanceof ACO)
-            $this->_aco->setAttribute($name, $value);
+        if ($this->_adapter instanceof Adapter)
+            $this->_adapter->setAttribute($name, $value);
         else
             $this->_attributes[$name] = $value;
     }
