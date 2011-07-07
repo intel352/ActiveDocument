@@ -73,7 +73,7 @@ abstract class Adapter extends CComponent {
      * @param string $name
      * @return \ext\activedocument\Container
      */
-    public function getContainer($name) {
+    public function getContainer($name, array $config=array()) {
         if (isset($this->_containers[$name]))
             return $this->_containers[$name];
         else {
@@ -96,15 +96,17 @@ abstract class Adapter extends CComponent {
                     if ($container !== null)
                         $cache->set($key, $container, $duration);
                 }
-                $this->_containers[$name] = $container;
             }
             else
-                $this->_containers[$name] = $container = $this->loadContainer($realName);
+                $container = $this->loadContainer($realName);
+            
+            if(!empty($config))
+                $container->setConfig($config);
 
             /* if(isset($qcDuration))  // re-enable query caching
               $this->_connection->queryCachingDuration=$qcDuration; */
 
-            return $container;
+            return $this->_containers[$name] = $container;
         }
     }
 

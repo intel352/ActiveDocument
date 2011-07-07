@@ -26,6 +26,10 @@ abstract class Document extends CModel {
     protected $_attributes = array();
     protected $_pk;
 
+    /**
+     * @param string $className
+     * @return \ext\activedocument\Document
+     */
     public static function model($className=__CLASS__) {
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
@@ -68,8 +72,8 @@ abstract class Document extends CModel {
     
     public function setObject(Object $object) {
         $this->_object = $object;
-        $this->_pk = $object->getKey();
-        if($this->_pk === null)
+        $this->setPrimaryKey($object->getKey());
+        if($this->getIsNewRecord())
             $this->_object->data = $this->getMetaData()->attributeDefaults;
         $this->setAttributes($this->_object->data);
     }
@@ -267,8 +271,12 @@ abstract class Document extends CModel {
      */
     public function getContainer() {
         if($this->_container===null)
-            $this->_container = $this->getAdapter()->getContainer($this->getContainerName());
+            $this->_container = $this->getAdapter()->getContainer($this->getContainerName(), $this->containerConfig());
         return $this->_container;
+    }
+    
+    public function containerConfig() {
+        return array();
     }
 
     /**
@@ -368,6 +376,7 @@ abstract class Document extends CModel {
         foreach($attributes as $name=>$value) {
             $this->_object->data[$name]=$value;
         }
+        $this->_object->setKey($this->getPrimaryKey());
         return $this->_object->store();
     }
 
@@ -377,7 +386,7 @@ abstract class Document extends CModel {
         if ($this->beforeSave()) {
             Yii::trace(get_class($this) . '.insert()', 'ext.activedocument.' . get_class($this));
             if ($this->store($attributes)) {
-                $this->_pk = $this->_object->getKey();
+                $this->setPrimaryKey($this->_object->getKey());
                 $this->afterSave();
                 $this->setIsNewRecord(false);
                 $this->setScenario('update');
@@ -393,9 +402,9 @@ abstract class Document extends CModel {
         if ($this->beforeSave()) {
             Yii::trace(get_class($this) . '.update()', 'ext.activedocument.' . get_class($this));
             if ($this->_pk === null)
-                $this->_pk = $this->_object->getKey();
+                $this->setPrimaryKey($this->_object->getKey());
             $this->store($attributes);
-            $this->_pk = $this->_object->getKey();
+            $this->setPrimaryKey($this->_object->getKey());
             $this->afterSave();
             return true;
         }
@@ -415,9 +424,9 @@ abstract class Document extends CModel {
                     $values[$name] = $object->data[$name] = $value;
             }
             if ($this->_pk === null)
-                $this->_pk = $this->_object->getKey();
+                $this->setPrimaryKey($this->_object->getKey());
             if ($this->updateByPk($this->getOldPrimaryKey(), $values) > 0) {
-                $this->_pk = $this->_object->getKey();
+                $this->setPrimaryKey($this->_object->getKey());
                 return true;
             }
             else
@@ -486,10 +495,9 @@ abstract class Document extends CModel {
 
     public function findByPk($pk, $condition='', array $params=array()) {
         Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
-        return $this->getContainer()->getObject($key);
-        //$prefix = $this->getTableAlias(true) . '.';
-        //$criteria = $this->getCommandBuilder()->createPkCriteria($this->getMetaData(), $pk, $condition, $params, $prefix);
-        //return $this->query($criteria);
+        $prefix = $this->getTableAlias(true) . '.';
+        $criteria = $this->getCommandBuilder()->createPkCriteria($this->getMetaData(), $pk, $condition, $params, $prefix);
+        return $this->query($criteria);
     }
 
     public function findAllByPk($pk, $condition='', array $params=array()) {

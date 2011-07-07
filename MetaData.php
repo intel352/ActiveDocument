@@ -42,7 +42,7 @@ class MetaData extends CComponent {
     public function getContainer() {
         return $this->_container;
     }
-    
+
     protected function loadAttributes() {
         $attributes = $this->_container->getAttributes();
         if(empty($attributes)) {

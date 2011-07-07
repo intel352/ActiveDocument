@@ -37,8 +37,8 @@ class Container extends \ext\activedocument\Container {
      * @param array $properties 
      */
     public function setProperties(array $properties) {
-        $this->_properties = $properties;
-        $this->_containerInstance->setProperties($this->_properties);
+        $this->_containerInstance->setProperties($properties);
+        $this->_properties = array_merge($this->_properties, $properties);
     }
     
     public function delete() {

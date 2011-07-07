@@ -78,5 +78,9 @@ abstract class Container extends CComponent {
         foreach ($this->_properties as $k => $v)
             $this->setProperty($k, $v);
     }
+    
+    public function setConfig(array $config) {
+        $this->setProperties($config);
+    }
 
 }
