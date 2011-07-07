@@ -34,18 +34,10 @@ class CommandBuilder extends CComponent {
         return $this->_adapter;
     }
 
-    public function getLastInsertID() {
-        /*$this->ensureContainer($container);
-        if ($container->sequenceName !== null)
-            return $this->_connection->getLastInsertID($container->sequenceName);
-        else
-            return null;*/
+    public function createFindCommand($container, $criteria) {
     }
 
-    public function createFindCommand($container, $criteria, $alias='t') {
-    }
-
-    public function createCountCommand($container, $criteria, $alias='t') {
+    public function createCountCommand($container, $criteria) {
     }
 
     public function createDeleteCommand($container, $criteria) {
@@ -58,51 +50,6 @@ class CommandBuilder extends CComponent {
     }
 
     public function createUpdateCounterCommand($container, $counters, $criteria) {
-    }
-
-    public function createSqlCommand($sql, $params=array()) {
-    }
-
-    public function applyJoin($sql, $join) {
-    }
-
-    public function applyCondition($sql, $condition) {
-    }
-
-    public function applyOrder($sql, $orderBy) {
-    }
-
-    public function applyLimit($sql, $limit, $offset) {
-    }
-
-    public function applyGroup($sql, $group) {
-    }
-
-    public function applyHaving($sql, $having) {
-    }
-
-    public function bindValues($command, $values) {
-    }
-
-    public function createCriteria($condition='', $params=array()) {
-    }
-
-    public function createPkCriteria($container, $pk, $condition='', $params=array(), $prefix=null) {
-    }
-
-    public function createPkCondition($container, $values, $prefix=null) {
-    }
-
-    public function createColumnCriteria($container, $columns, $condition='', $params=array(), $prefix=null) {
-    }
-
-    public function createSearchCondition($container, $columns, $keywords, $prefix=null, $caseSensitive=true) {
-    }
-
-    public function createInCondition($container, $columnName, $values, $prefix=null) {
-    }
-
-    protected function createCompositeInCondition($container, $values, $prefix) {
     }
 
     protected function ensureContainer(&$container) {
