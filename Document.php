@@ -13,6 +13,9 @@ abstract class Document extends CModel {
      */
     public static $conn;
     private static $_models = array();
+    /**
+     * @var \ext\activedocument\MetaData
+     */
     private $_md;
     /**
      * @var \ext\activedocment\Container
