@@ -5,6 +5,9 @@ use \Yii, \CComponent;
 
 /**
  * @todo Build validation rules based on types, defaults, etc. Need support for custom type validation as well
+ * 
+ * For adding validator rules:
+ * $this->getModel()->getValidatorList()->add(CValidator::createValidator($validatorName,$this,$attributes,$otherParams));
  */
 class MetaData extends CComponent {
 
