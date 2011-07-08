@@ -31,10 +31,10 @@ abstract class Document extends CModel {
     protected $_pk;
 
     /**
-     * @param string $className
      * @return \ext\activedocument\Document
      */
-    public static function model($className=__CLASS__) {
+    public static function model() {
+        $className=get_called_class();
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
