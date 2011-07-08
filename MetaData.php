@@ -3,78 +3,132 @@
 namespace ext\activedocument;
 use \Yii, \CComponent;
 
+/**
+ * @todo Build validation rules based on types, defaults, etc. Need support for custom type validation as well
+ */
 class MetaData extends CComponent {
 
-    public $attributes = array();
-    #public $relations=array();
-    public $attributeDefaults = array();
     /**
      * @var \ext\activedocument\Document
      */
-    private $_model;
+    protected $_model;
     /**
-     * @var \ext\activedocument\Container
+     * @var \ReflectionClass
      */
-    private $_container;
+    protected $_reflectionClass;
+    /**
+     * @var \ArrayObject
+     */
+    protected $_properties;
+    protected $_propertySchema = array('propVar'=>null,'access'=>null,'type'=>null,'name'=>null,'description'=>null,'defaultValue'=>null,'class'=>null);
+    protected $_propertyRegex = '/\@(?<propVar>property(?:\-(?<access>read|write))?|var)\s+(?<type>[^\s]+)(?:\s+(?:\$(?<name>[\w][[:alnum:]][\w\d]*)\s+)?(?<description>.+))?/';
+    
+    protected $_attributeDefaults;
 
     public function __construct(Document $model) {
         $this->_model = $model;
 
-        if (($container = $model->getContainer()) === null)
+        if ($model->getContainer() === null)
             throw new Exception(Yii::t('yii', 'The container "{container}" for document class "{class}" cannot be found in the storage media.', array('{class}' => get_class($model), '{container}' => $model->getContainerName())));
-        $this->_container = $container;
-        $this->attributes = $this->loadAttributes();
-
-        /*foreach ($this->attributes as $name => $attribute) {
-            if ($attribute->defaultValue !== null)
-                $this->attributeDefaults[$name] = $attribute->defaultValue;
-        }*/
-
-        /* foreach($model->relations() as $name=>$config)
-          {
-          $this->addRelation($name,$config);
-          } */
+    }
+    
+    public function getReflectionClass() {
+        if($this->_reflectionClass===null)
+            return $this->_reflectionClass = new \ReflectionClass(get_class($this->_model));
+        return $this->_reflectionClass;
+    }
+    
+    public function getAttributes() {
+        return $this->getProperties();
+    }
+    
+    public function getAttributeDefaults() {
+        if($this->_attributeDefaults===null) {
+            $this->_attributeDefaults = new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS);
+            array_walk($this->getProperties(), function($v,$k,&$attrDefs){
+                if($v->defaultValue!==null)
+                    $attrDefs[$k]=$v->defaultValue;
+            }, $this->_attributeDefaults);
+        }
+        return $this->_attributeDefaults;
     }
     
     /**
-     * @return \ext\activedocument\Container
+     *
+     * @return \ArrayObject
      */
-    public function getContainer() {
-        return $this->_container;
-    }
+    public function getProperties() {
+        if($this->_properties!==null)
+            return $this->_properties;
+        $this->_properties = new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS);
 
-    protected function loadAttributes() {
-        $attributes = $this->_container->getAttributes();
-        if(empty($attributes)) {
-            $reflection = new \ReflectionClass(get_class($this->_model));
-            $props = $reflection->getProperties(\ReflectionProperty::IS_PUBLIC);
+        $reflectionClass = $this->getReflectionClass();
+        $this->parsePhpDoc($reflectionClass->getDocComment());
+        
+        $props = $reflectionClass->getProperties(\ReflectionProperty::IS_PUBLIC);
+        if(!empty($props)) {
+            $propDefaults = $reflectionClass->getDefaultProperties();
             foreach($props as $prop) {
                 /**
                  * Exclude public static properties
-                 * @todo Need attr "definition"
                  */
-                if(!$prop->isStatic())
-                    $attributes[$prop->getName()] = $prop->getName();
+                if($prop->isStatic())
+                    continue;
+
+                if(!array_key_exists($prop->name, $this->_properties))
+                    $this->_properties->{$prop->name} = new \ArrayObject($this->_propertySchema, \ArrayObject::ARRAY_AS_PROPS);
+
+                $this->parsePhpDoc($prop->getDocComment(), $prop);
+
+                $this->_properties->{$prop->name}->defaultValue = $propDefaults[$prop->name];
+                $this->_properties->{$prop->name}->class = $prop->class;
             }
         }
-        return $attributes;
     }
+    
+    protected function parsePhpDoc($phpdoc, \ReflectionProperty $property=null) {
+        $phpdoc = $this->cleanPhpDoc($phpdoc);
+        if(!empty($phpdoc))
+            array_walk($phpdoc, array($this,'parsePhpDocProperties'), $property);
+    }
+    
+    protected function cleanPhpDoc($phpdoc) {
+        /**
+         * Split by newlines
+         */
+        $phpdoc = preg_split('/[\n\r]/', $phpdoc, null, PREG_SPLIT_NO_EMPTY);
+        /**
+         * Filter down to only lines with alphanumeric chars
+         */
+        if(!empty($phpdoc))
+            $phpdoc = preg_grep('/[\w\d]+/', $phpdoc);
+        /**
+         * Trim out whitespace & asterisks
+         */
+        if(!empty($phpdoc))
+            array_walk($phpdoc, function(&$var){$var=trim($var, " \t\r\n\0\x0B*");});
+        return $phpdoc;
+    }
+    
+    protected function parsePhpDocProperties($string, $index, \ReflectionProperty $property=null) {
+        if(!preg_match($this->_propertyRegex, $string, $matches))
+            return false;
+        $matches = array_merge($this->_propertySchema, array_intersect_key($matches, $this->_propertySchema));
+        
+        if(empty($matches['name'])) {
+            if($property===null)
+                return false;
+            $matches['name'] = $property->name;
+        }
 
-    /* public function addRelation($name,$config)
-      {
-      if(isset($config[0],$config[1],$config[2]))  // relation class, AR class, FK
-      $this->relations[$name]=new $config[0]($name,$config[1],$config[2],array_slice($config,3));
-      else
-      throw new ActiveException(Yii::t('yii','Active record "{class}" has an invalid configuration for relation "{relation}". It must specify the relation type, the related active record class and the foreign key.', array('{class}'=>get_class($this->_model),'{relation}'=>$name)));
-      }
+        $varName=($property!==null)?$property->name:$matches['name'];
+        if(!array_key_exists($varName, $this->_properties))
+            $this->_properties->$varName = new \ArrayObject($this->_propertySchema, \ArrayObject::ARRAY_AS_PROPS);
 
-      public function hasRelation($name)
-      {
-      return isset($this->relations[$name]);
-      }
-
-      public function removeRelation($name)
-      {
-      unset($this->relations[$name]);
-      } */
+        array_walk($matches, function($v,$k,&$prop){
+            if(!isset($prop->$k) || ($prop->$k===null && $v!==null))
+                $prop->$k = $v;
+        }, $this->_properties->$varName);
+    }
+    
 }

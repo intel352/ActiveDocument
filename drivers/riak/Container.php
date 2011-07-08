@@ -77,8 +77,4 @@ class Container extends \ext\activedocument\Container {
         return new Object($this, $key, $data, $new);
     }
     
-    public function getAttributes() {
-        return array();
-    }
-
 }

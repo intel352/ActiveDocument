@@ -1,6 +1,7 @@
 <?php
 
 namespace ext\activedocument;
+
 use \Yii,
     \CModel,
     \CEvent,
@@ -38,7 +39,7 @@ abstract class Document extends CModel {
             return self::$_models[$className];
         else {
             $document = self::$_models[$className] = new $className(null);
-			$document->_md=new MetaData($document);
+            $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
             return $document;
         }
@@ -61,11 +62,11 @@ abstract class Document extends CModel {
     public function init() {
         
     }
-    
+
     protected function newObject() {
         $this->setObject($this->loadObject());
     }
-    
+
     protected function loadObject($key=null) {
         return $this->getContainer()->getObject($key, null, $this->getIsNewRecord());
     }
@@ -76,11 +77,11 @@ abstract class Document extends CModel {
     public function getObject() {
         return $this->_object;
     }
-    
+
     public function setObject(Object $object) {
         $this->_object = $object;
-        $this->setPrimaryKey($object->getKey());
-        if($this->getIsNewRecord())
+        $this->ensurePk();
+        if ($this->getIsNewRecord())
             $this->_object->data = $this->getMetaData()->attributeDefaults;
         $this->setAttributes($this->_object->data);
     }
@@ -94,7 +95,7 @@ abstract class Document extends CModel {
     }
 
     public function __sleep() {
-		$this->_md=null;
+        $this->_md = null;
         return array_keys((array) $this);
     }
 
@@ -135,7 +136,7 @@ abstract class Document extends CModel {
 
     public function __unset($name) {
         if (isset($this->getMetaData()->attributes[$name]))
-          unset($this->_attributes[$name]);
+            unset($this->_attributes[$name]);
         /*  else if (isset($this->getMetaData()->relations[$name]))
           unset($this->_related[$name]);
           else */
@@ -174,7 +175,7 @@ abstract class Document extends CModel {
         if (property_exists($this, $name))
             $this->$name = $value;
         else if (isset($this->getMetaData()->attributes[$name]))
-          $this->_attributes[$name] = $value;
+            $this->_attributes[$name] = $value;
         else
             return false;
         return true;
@@ -182,7 +183,7 @@ abstract class Document extends CModel {
 
     public function getAttributes($names=true) {
         $attributes = $this->_attributes;
-        foreach ($this->getMetaData()->attributes as $name => $column) {
+        foreach ($this->getMetaData()->attributes as $name => $attr) {
             if (property_exists($this, $name))
                 $attributes[$name] = $this->$name;
             else if ($names === true && !isset($attributes[$name]))
@@ -221,14 +222,33 @@ abstract class Document extends CModel {
         return $this->getContainerName() === $document->getContainerName() && $this->getPrimaryKey() === $document->getPrimaryKey();
     }
 
-    public function getPrimaryKey() {
-        return $this->_pk;
+    public function primaryKey() {
+        return '_pk';
     }
 
-    public function setPrimaryKey($value) {
-        $this->_pk = $value;
+    public function getPrimaryKey() {
+        $pk = $this->primaryKey();
+        if (is_string($pk))
+            return $this->{$pk};
+        else {
+            $return = array();
+            foreach ($pk as $pkField)
+                $return[] = $this->{$pkField};
+
+            return $return;
+        }
     }
     
+    protected function ensurePk() {
+        if($this->_pk===null)
+            if(!empty($this->primaryKey))
+                $this->_pk = $this->getPrimaryKey();
+            elseif(!empty($this->_object->key))
+                $this->_pk = $this->_object->getKey();
+        if(is_array($this->_pk))
+            $this->_pk = implode('_', $this->_pk);
+    }
+
     /* public function cache($duration, $dependency=null, $queryCount=1) {
       $this->getDbConnection()->cache($duration, $dependency, $queryCount);
       return $this;
@@ -264,7 +284,7 @@ abstract class Document extends CModel {
     public function getCommandBuilder() {
         return $this->getConnection()->getCommandBuilder();
     }
-    
+
     public function getAdapter() {
         return $this->getConnection()->getAdapter();
     }
@@ -272,16 +292,16 @@ abstract class Document extends CModel {
     public function getContainerName() {
         return get_class($this);
     }
-    
+
     /**
      * @return \ext\activedocument\Container
      */
     public function getContainer() {
-        if($this->_container===null)
+        if ($this->_container === null)
             $this->_container = $this->getAdapter()->getContainer($this->getContainerName(), $this->containerConfig());
         return $this->_container;
     }
-    
+
     public function containerConfig() {
         return array();
     }
@@ -294,7 +314,7 @@ abstract class Document extends CModel {
             $this->_md = self::model(get_class($this))->_md;
         return $this->_md;
     }
-    
+
     public function save($runValidation=true, $attributes=null) {
         if (!$runValidation || $this->validate($attributes))
             return $this->getIsNewRecord() ? $this->insert($attributes) : $this->update($attributes);
@@ -377,13 +397,13 @@ abstract class Document extends CModel {
     public function afterFindInternal() {
         $this->afterFind();
     }
-    
+
     protected function store(array $attributes=null) {
         $attributes = $this->getAttributes($attributes);
-        foreach($attributes as $name=>$value) {
-            $this->_object->data[$name]=$value;
+        foreach ($attributes as $name => $value) {
+            $this->_object->data[$name] = $value;
         }
-        $this->_object->setKey($this->getPrimaryKey());
+        $this->_object->setKey($this->_pk);
         return $this->_object->store();
     }
 
@@ -392,8 +412,9 @@ abstract class Document extends CModel {
             throw new Exception(Yii::t('yii', 'The document cannot be inserted because it is not new.'));
         if ($this->beforeSave()) {
             Yii::trace(get_class($this) . '.insert()', 'ext.activedocument.' . get_class($this));
+            $this->ensurePk();
             if ($this->store($attributes)) {
-                $this->setPrimaryKey($this->_object->getKey());
+                $this->_pk = $this->_object->getKey();
                 $this->afterSave();
                 $this->setIsNewRecord(false);
                 $this->setScenario('update');
@@ -408,10 +429,9 @@ abstract class Document extends CModel {
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
         if ($this->beforeSave()) {
             Yii::trace(get_class($this) . '.update()', 'ext.activedocument.' . get_class($this));
-            if ($this->_pk === null)
-                $this->setPrimaryKey($this->_object->getKey());
-            if($this->store($attributes)) {
-                $this->setPrimaryKey($this->_object->getKey());
+            $this->ensurePk();
+            if ($this->store($attributes)) {
+                $this->_pk = $this->_object->getKey();
                 $this->afterSave();
                 return true;
             }
@@ -424,10 +444,9 @@ abstract class Document extends CModel {
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
         Yii::trace(get_class($this) . '.saveAttributes()', 'ext.activedocument.' . get_class($this));
         $this->setAttributes($attributes);
-        if ($this->_pk === null)
-            $this->setPrimaryKey($this->_object->getKey());
+        $this->ensurePk();
         if ($this->store(array_keys($attributes))) {
-            $this->setPrimaryKey($this->_object->getKey());
+            $this->_pk = $this->_object->getKey();
             return true;
         }
         return false;
@@ -438,6 +457,7 @@ abstract class Document extends CModel {
             throw new Exception(Yii::t('yii', 'The document cannot be deleted because it is new.'));
         Yii::trace(get_class($this) . '.delete()', 'ext.activedocument.' . get_class($this));
         if ($this->beforeDelete()) {
+            $this->ensurePk();
             $result = $this->_object->delete();
             $this->afterDelete();
             return $result;
@@ -445,32 +465,32 @@ abstract class Document extends CModel {
         else
             return false;
     }
-    
+
     /**
      * @param string $key
      * @return \ext\activedocument\Document
      */
-    public function find($key) {
+    public function findByPk($key) {
         Yii::trace(get_class($this) . '.find()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
         return $this->populateDocument($this->loadObject($key));
     }
-    
+
     public function findAll(array $keys=null) {
         Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
-        if($keys === null)
+        if ($keys === null)
             $keys = $this->_container->getKeys();
-        if(empty($keys))
+        if (empty($keys))
             return array();
-        
+
         $objects = array();
-        foreach($keys as $key)
+        foreach ($keys as $key)
             $objects[] = $this->loadObject($key);
-            
+
         return $this->populateDocuments($objects);
     }
-    
+
     /**
      * @param Object $object
      * @param bool $callAfterFind

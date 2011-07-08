@@ -37,8 +37,6 @@ abstract class Container extends CComponent {
     
     abstract public function getObject($key=null);
     
-    abstract public function getAttributes();
-
     public function __construct(Adapter $adapter, $name) {
         $this->_adapter = $adapter;
         $this->_connection = $adapter->getConnection();
