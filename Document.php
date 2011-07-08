@@ -83,7 +83,7 @@ abstract class Document extends CModel {
         $this->ensurePk();
         if ($this->getIsNewRecord())
             $this->_object->data = $this->getMetaData()->attributeDefaults;
-        $this->setAttributes($this->_object->data);
+        $this->setAttributes($this->_object->data, false);
     }
 
     public function getIsNewRecord() {
@@ -443,7 +443,7 @@ abstract class Document extends CModel {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
         Yii::trace(get_class($this) . '.saveAttributes()', 'ext.activedocument.' . get_class($this));
-        $this->setAttributes($attributes);
+        $this->setAttributes($attributes, false);
         $this->ensurePk();
         if ($this->store(array_keys($attributes))) {
             $this->_pk = $this->_object->getKey();
@@ -471,7 +471,7 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Document
      */
     public function findByPk($key) {
-        Yii::trace(get_class($this) . '.find()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
         return $this->populateDocument($this->loadObject($key));
     }

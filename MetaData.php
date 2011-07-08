@@ -21,7 +21,7 @@ class MetaData extends CComponent {
      */
     protected $_properties;
     protected $_propertySchema = array('propVar'=>null,'access'=>null,'type'=>null,'name'=>null,'description'=>null,'defaultValue'=>null,'class'=>null);
-    protected $_propertyRegex = '/\@(?<propVar>property(?:\-(?<access>read|write))?|var)\s+(?<type>[^\s]+)(?:\s+(?:\$(?<name>[\w][[:alnum:]][\w\d]*)\s+)?(?<description>.+))?/';
+    protected $_propertyRegex = '/\@(?<propVar>property(?:\-(?<access>read|write))?|var)\s+(?<type>[^\s]+)(?:\s+(?:\$(?<name>[\w][[:alnum:]][\w\d]*))(?:\s*(?<description>.+))?)?/';
     
     protected $_attributeDefaults;
 
@@ -39,7 +39,7 @@ class MetaData extends CComponent {
     }
     
     public function getAttributes() {
-        return $this->getProperties();
+        return $this->getProperties()->getArrayCopy();
     }
     
     public function getAttributeDefaults() {
@@ -84,6 +84,7 @@ class MetaData extends CComponent {
                 $this->_properties->{$prop->name}->class = $prop->class;
             }
         }
+        return $this->_properties;
     }
     
     protected function parsePhpDoc($phpdoc, \ReflectionProperty $property=null) {
