@@ -30,4 +30,12 @@ class Adapter extends \ext\activedocument\Adapter {
         return new Container($this, $name);
     }
     
+    /**
+     * @param bool $reset
+     * @return \riiak\MapReduce
+     */
+    public function getMapReduce($reset=false) {
+        return $this->_storageInstance->getMapReduce($reset);
+    }
+    
 }

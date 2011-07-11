@@ -3,7 +3,7 @@
 namespace ext\activedocument;
 use \CComponent;
 
-class CommandBuilder extends CComponent {
+abstract class CommandBuilder extends CComponent {
     const PARAM_PREFIX=':ap';
 
     /**
@@ -34,23 +34,17 @@ class CommandBuilder extends CComponent {
         return $this->_adapter;
     }
 
-    public function createFindCommand($container, $criteria) {
-    }
+    abstract public function createFindCommand($container, $criteria);
 
-    public function createCountCommand($container, $criteria) {
-    }
+    abstract public function createCountCommand($container, $criteria);
 
-    public function createDeleteCommand($container, $criteria) {
-    }
+    abstract public function createDeleteCommand($container, $criteria);
 
-    public function createInsertCommand($container, $data) {
-    }
+    abstract public function createInsertCommand($container, $data);
 
-    public function createUpdateCommand($container, $data, $criteria) {
-    }
+    abstract public function createUpdateCommand($container, $data, $criteria);
 
-    public function createUpdateCounterCommand($container, $counters, $criteria) {
-    }
+    abstract public function createUpdateCounterCommand($container, $counters, $criteria);
 
     protected function ensureContainer(&$container) {
         if (is_string($container) && ($container = $this->_adapter->getContainer($containerName = $container)) === null)

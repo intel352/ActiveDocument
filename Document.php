@@ -19,6 +19,10 @@ abstract class Document extends CModel {
      */
     private $_md;
     /**
+     * @var \ext\activedocument\DbCriteria
+     */
+    private $_c;        // query criteria (used by finder only)
+    /**
      * @var \ext\activedocument\Container
      */
     protected $_container;
@@ -34,7 +38,7 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Document
      */
     public static function model() {
-        $className=get_called_class();
+        $className = get_called_class();
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
@@ -92,6 +96,27 @@ abstract class Document extends CModel {
 
     public function setIsNewRecord($value) {
         $this->_new = $value;
+    }
+
+    public function getDbCriteria($createIfNull=true) {
+        if ($this->_c === null) {
+            if (($c = $this->defaultScope()) !== array() || $createIfNull)
+                $this->_c = new DbCriteria($c);
+        }
+        return $this->_c;
+    }
+
+    public function setDbCriteria($criteria) {
+        $this->_c = $criteria;
+    }
+
+    public function defaultScope() {
+        return array();
+    }
+
+    public function resetScope() {
+        $this->_c = new DbCriteria();
+        return $this;
     }
 
     public function __sleep() {
@@ -231,21 +256,29 @@ abstract class Document extends CModel {
         if (is_string($pk))
             return $this->{$pk};
         else {
+            $isNull = true;
             $return = array();
-            foreach ($pk as $pkField)
+            foreach ($pk as $pkField) {
+                $isNull = & is_null($this->{$pkField}) || $this->{$pkField} === '';
                 $return[] = $this->{$pkField};
+            }
 
+            /**
+             * If all pk values are empty/null, return null
+             */
+            if ($isNull)
+                return null;
             return $return;
         }
     }
-    
+
     protected function ensurePk() {
-        if($this->_pk===null)
-            if(!empty($this->primaryKey))
+        if ($this->_pk === null)
+            if (!empty($this->primaryKey))
                 $this->_pk = $this->getPrimaryKey();
-            elseif(!empty($this->_object->key))
+            elseif (!empty($this->_object->key))
                 $this->_pk = $this->_object->getKey();
-        if(is_array($this->_pk))
+        if ($this->_pk !== null && is_array($this->_pk))
             $this->_pk = implode('_', $this->_pk);
     }
 
