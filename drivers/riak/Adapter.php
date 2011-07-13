@@ -73,8 +73,10 @@ class Adapter extends \ext\activedocument\Adapter {
                 $mr->addPhase($phase[0], $phase[1], $phase[2]);
         else
             $mr->map('function(v){return [v];}');
-        if($criteria->limit>0)
-            $mr->reduce('Riak.reduceSlice', array('arg'=>array($criteria->offset>0?$criteria->offset:0, $criteria->limit)));
+        if($criteria->limit>0) {
+            $offset = $criteria->offset>0?$criteria->offset:0;
+            $mr->reduce('Riak.reduceSlice', array('arg'=>array($offset, $offset+$criteria->limit)));
+        }
         $results = $mr->run();
         $objects = array();
         if(!empty($results))
