@@ -26,6 +26,10 @@ abstract class Container extends CComponent {
     abstract protected function loadContainer();
 
     abstract protected function loadProperties();
+    
+    abstract public function count(Criteria $criteria=null);
+    
+    abstract public function find(Criteria $criteria=null);
 
     abstract public function getKeys();
     

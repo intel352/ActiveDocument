@@ -109,45 +109,9 @@ abstract class Adapter extends CComponent {
             return $this->_containers[$name] = $container;
         }
     }
-
-    public function beginTransaction() {
-        $this->_runningTransaction = true;
-    }
-
-    public function commit() {
-        $this->_runningTransaction = false;
-    }
-
-    public function getErrorCode() {
-        return $this->_errorCode;
-    }
-
-    public function getErrorInfo() {
-        return $this->_errorInfo;
-    }
-
-    public function exec() {
-        
-    }
-
-    public function getInTransaction() {
-        return $this->_runningTransaction;
-    }
-
-    public function prepare() {
-        ;
-    }
-
-    public function query() {
-        ;
-    }
-
-    public function quote() {
-        ;
-    }
-
-    public function rollBack() {
-        ;
-    }
+    
+    abstract public function count(Criteria $criteria);
+    
+    abstract public function find(Criteria $criteria);
 
 }

@@ -2,9 +2,9 @@
 
 namespace ext\activedocument;
 
-use \CDataProvider;
+use \CActiveDataProvider;
 
-class DataProvider extends CDataProvider {
+class DataProvider extends CActiveDataProvider {
 
     /**
      * @var string the primary Document class name. The {@link getData()} method
@@ -15,7 +15,6 @@ class DataProvider extends CDataProvider {
      * @var Document the finder instance (eg <code>Post::model()</code>).
      * This property can be set by passing the finder instance as the first parameter
      * to the constructor. For example, <code>Post::model()->published()</code>.
-     * @since 1.1.3
      */
     public $model;
     /**
@@ -24,6 +23,7 @@ class DataProvider extends CDataProvider {
      */
     public $keyAttribute;
     private $_criteria;
+    private $_sort;
 
     /**
      * Constructor.
@@ -46,11 +46,11 @@ class DataProvider extends CDataProvider {
 
     /**
      * Returns the query criteria.
-     * @return DbCriteria the query criteria
+     * @return Criteria the query criteria
      */
     public function getCriteria() {
         if ($this->_criteria === null)
-            $this->_criteria = new DbCriteria;
+            $this->_criteria = new Criteria;
         return $this->_criteria;
     }
 
@@ -60,7 +60,7 @@ class DataProvider extends CDataProvider {
      * representing the query criteria.
      */
     public function setCriteria($value) {
-        $this->_criteria = $value instanceof DbCriteria ? $value : new DbCriteria($value);
+        $this->_criteria = $value instanceof Criteria ? $value : new Criteria($value);
     }
 
     /**
@@ -68,9 +68,13 @@ class DataProvider extends CDataProvider {
      * @return CSort the sorting object. If this is false, it means the sorting is disabled.
      */
     public function getSort() {
-        if (($sort = parent::getSort()) !== false)
-            $sort->modelClass = $this->modelClass;
-        return $sort;
+        if ($this->_sort === null) {
+            $this->_sort = new Sort;
+            if (($id = $this->getId()) != '')
+                $this->_sort->sortVar = $id . '_sort';
+            $this->_sort->modelClass = $this->modelClass;
+        }
+        return $this->_sort;
     }
 
     /**
@@ -85,23 +89,23 @@ class DataProvider extends CDataProvider {
             $pagination->applyLimit($criteria);
         }
 
-        $baseCriteria = $this->model->getDbCriteria(false);
+        $baseCriteria = $this->model->getCriteria(false);
 
         if (($sort = $this->getSort()) !== false) {
             // set model criteria so that CSort can use its table alias setting
             if ($baseCriteria !== null) {
                 $c = clone $baseCriteria;
                 $c->mergeWith($criteria);
-                $this->model->setDbCriteria($c);
+                $this->model->setCriteria($c);
             }
             else
-                $this->model->setDbCriteria($criteria);
+                $this->model->setCriteria($criteria);
             $sort->applyOrder($criteria);
         }
 
-        $this->model->setDbCriteria($baseCriteria !== null ? clone $baseCriteria : null);
+        $this->model->setCriteria($baseCriteria !== null ? clone $baseCriteria : null);
         $data = $this->model->findAll($criteria);
-        $this->model->setDbCriteria($baseCriteria);  // restore original criteria
+        $this->model->setCriteria($baseCriteria);  // restore original criteria
         return $data;
     }
 
@@ -123,11 +127,11 @@ class DataProvider extends CDataProvider {
      * @return integer the total number of data items.
      */
     protected function calculateTotalItemCount() {
-        $baseCriteria = $this->model->getDbCriteria(false);
+        $baseCriteria = $this->model->getCriteria(false);
         if ($baseCriteria !== null)
             $baseCriteria = clone $baseCriteria;
         $count = $this->model->count($this->getCriteria());
-        $this->model->setDbCriteria($baseCriteria);
+        $this->model->setCriteria($baseCriteria);
         return $count;
     }
 

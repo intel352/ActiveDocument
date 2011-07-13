@@ -44,6 +44,20 @@ class Container extends \ext\activedocument\Container {
     public function delete() {
         return $this->deleteKeys($this->getKeys());
     }
+    
+    public function count(\ext\activedocument\Criteria $criteria=null) {
+        if(!($criteria instanceof \ext\activedocument\Criteria))
+            $criteria = new \ext\activedocument\Criteria;
+        $criteria->container = $this->_name;
+        return $this->_adapter->count($criteria);
+    }
+    
+    public function find(\ext\activedocument\Criteria $criteria=null) {
+        if(!($criteria instanceof \ext\activedocument\Criteria))
+            $criteria = new \ext\activedocument\Criteria;
+        $criteria->container = $this->_name;
+        return $this->_adapter->find($criteria);
+    }
 
     /**
      * @return array 

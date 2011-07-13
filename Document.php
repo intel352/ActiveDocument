@@ -19,7 +19,7 @@ abstract class Document extends CModel {
      */
     private $_md;
     /**
-     * @var \ext\activedocument\DbCriteria
+     * @var \ext\activedocument\Criteria
      */
     private $_c;        // query criteria (used by finder only)
     /**
@@ -37,8 +37,9 @@ abstract class Document extends CModel {
     /**
      * @return \ext\activedocument\Document
      */
-    public static function model() {
-        $className = get_called_class();
+    public static function model($className=null) {
+        if($className===null)
+            $className = get_called_class();
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
@@ -98,15 +99,15 @@ abstract class Document extends CModel {
         $this->_new = $value;
     }
 
-    public function getDbCriteria($createIfNull=true) {
+    public function getCriteria($createIfNull=true) {
         if ($this->_c === null) {
             if (($c = $this->defaultScope()) !== array() || $createIfNull)
-                $this->_c = new DbCriteria($c);
+                $this->_c = new Criteria($c);
         }
         return $this->_c;
     }
 
-    public function setDbCriteria($criteria) {
+    public function setCriteria($criteria) {
         $this->_c = $criteria;
     }
 
@@ -115,7 +116,7 @@ abstract class Document extends CModel {
     }
 
     public function resetScope() {
-        $this->_c = new DbCriteria();
+        $this->_c = new Criteria();
         return $this;
     }
 
@@ -260,7 +261,7 @@ abstract class Document extends CModel {
             $return = array();
             foreach ($pk as $pkField) {
                 $isNull = & is_null($this->{$pkField}) || $this->{$pkField} === '';
-                $return[] = $this->{$pkField};
+                $return[$pkField] = $this->{$pkField};
             }
 
             /**
@@ -312,10 +313,6 @@ abstract class Document extends CModel {
             else
                 throw new Exception(Yii::t('yii', 'Active Document requires a "conn" Connection application component.'));
         }
-    }
-
-    public function getCommandBuilder() {
-        return $this->getConnection()->getCommandBuilder();
     }
 
     public function getAdapter() {
@@ -498,28 +495,70 @@ abstract class Document extends CModel {
         else
             return false;
     }
+    
+    public function count($criteria=null, array $params=array()) {
+        Yii::trace(get_class($this) . '.count()', 'ext.activedocument.' . get_class($this));
+        $c = new Criteria;
+        if(is_array($criteria) || $criteria instanceof Criteria)
+            $c->mergeWith($criteria);
+        if(!empty($params))
+            $c->params = array_merge($c->params, $params);
+        return $this->_container->count($c);
+    }
 
     /**
      * @param string $key
      * @return \ext\activedocument\Document
      */
-    public function findByPk($key) {
+    public function findByPk($key, $criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
         return $this->populateDocument($this->loadObject($key));
     }
 
-    public function findAll(array $keys=null) {
+    public function findAll($criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
-        if ($keys === null)
+
+        $objects = array();
+        if(empty($criteria) && empty($params)) {
             $keys = $this->_container->getKeys();
+            if (empty($keys))
+                return array();
+            foreach ($keys as $key)
+                $objects[] = $this->loadObject($key);
+        } else {
+            $c = new Criteria;
+            if(!empty($criteria))
+                $c->mergeWith($criteria);
+            if(!empty($params))
+                $c->params = array_merge($c->params, $params);
+            $objects = $this->_container->find($c);
+        }
+
+        return $this->populateDocuments($objects);
+    }
+
+    public function findAllByPk(array $keys, $criteria=null, array $params=array()) {
+        Yii::trace(get_class($this) . '.findAllByPk()', 'ext.activedocument.' . get_class($this));
+        $this->beforeFind();
         if (empty($keys))
             return array();
 
         $objects = array();
-        foreach ($keys as $key)
-            $objects[] = $this->loadObject($key);
+        if(empty($criteria) && empty($params))
+            foreach ($keys as $key)
+                $objects[] = $this->loadObject($key);
+        else {
+            $c = new Criteria;
+            if(!empty($criteria))
+                $c->mergeWith($criteria);
+            if(!empty($params))
+                $c->params = array_merge($c->params, $params);
+            foreach($keys as $key)
+                $c->addInput($this->getContainerName(), $key);
+            $objects = $this->_container->find($c);
+        }
 
         return $this->populateDocuments($objects);
     }

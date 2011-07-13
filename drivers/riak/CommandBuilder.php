@@ -26,7 +26,7 @@ class CommandBuilder extends \ext\activedocument\CommandBuilder {
 
     public function createCountCommand($container, $criteria) {
         $this->ensureContainer($container);
-        $criteria = new \ext\activedocument\DbCriteria($criteria);
+        $criteria = new \ext\activedocument\Criteria($criteria);
         $criteria->container=$container;
         $criteria->addMapPhase('function(){return [1]}');
         $criteria->addReducePhase('Riak.reduceSum');
