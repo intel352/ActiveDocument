@@ -89,7 +89,7 @@ class Criteria extends CComponent {
         if ($criteria->container !== null)
             $this->container = $criteria->container;
 
-        foreach (array('inputs', 'phases', 'params', 'search', 'column', 'array', 'between') as $arr)
+        foreach (array('inputs', 'phases', 'params', 'search', 'columns', 'array', 'between') as $arr)
             $this->$arr = array_merge((array) $this->$arr, (array) $criteria->$arr);
 
         if ($criteria->limit > 0)
@@ -170,7 +170,7 @@ class Criteria extends CComponent {
 
     public function toArray() {
         $result = array();
-        foreach (array('inputs', 'phases', 'params', 'search', 'column', 'array', 'between', 'container', 'limit', 'offset', 'order') as $name)
+        foreach (array('inputs', 'phases', 'params', 'search', 'columns', 'array', 'between', 'container', 'limit', 'offset', 'order') as $name)
             $result[$name] = $this->$name;
         return $result;
     }
