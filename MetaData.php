@@ -22,13 +22,16 @@ class MetaData extends CComponent {
      * @var \ReflectionClass
      */
     protected $_reflectionClass;
-    protected $_propertySchema = array('propVar' => null, 'access' => null, 'type' => null, 'name' => null, 'description' => null, 'defaultValue' => null, 'class' => null);
+    protected $_propertySchema = array('propVar' => null, 'access' => null, 'type' => null, 'realType' => null, 'size' => null, 'name' => null, 'description' => null, 'defaultValue' => null, 'class' => null);
     protected $_docPropertyRegex = '/\@(?<propVar>property(?:\-(?<access>read|write))?|var)\s+(?<type>[^\s]+)(?:\s+(?:\$(?<name>[\w][[:alnum:]][\w\d]*))(?:\s*(?<description>.+))?)?/';
     /**
      * @var \ArrayObject
      */
     protected $_classMeta;
     protected $_docAttributeRegex = '/\@(?<attribute>\w+)(?<!property|property-read|property-write|var)\s+(?:(\$)\w+\:\s)?\s*(?<value>[^\s]+)\s+\2?\s*(?<comment>.*)?/';
+    /**
+     * @var \ArrayObject
+     */
     protected $_attributeDefaults;
 
     public function __construct(Document $model) {
@@ -56,7 +59,7 @@ class MetaData extends CComponent {
                         $attrDefs[$k] = $v->defaultValue;
                 }, $this->_attributeDefaults);
         }
-        return $this->_attributeDefaults;
+        return $this->_attributeDefaults->getArrayCopy();
     }
 
     /**
