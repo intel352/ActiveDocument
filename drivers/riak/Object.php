@@ -19,7 +19,7 @@ class Object extends \ext\activedocument\Object {
         $this->setObjectData($this->data);
         $this->_objectInstance->store();
         $this->data = $this->getObjectData();
-        return true;
+        return $this->_objectInstance->getExists();
     }
 
     public function delete() {
@@ -32,7 +32,7 @@ class Object extends \ext\activedocument\Object {
         $this->setObjectData($this->data);
         $this->_objectInstance->reload();
         $this->data = $this->getObjectData();
-        return true;
+        return $this->_objectInstance->getExists();
     }
 
     public function getKey() {
