@@ -38,7 +38,7 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Document
      */
     public static function model($className=null) {
-        if($className===null)
+        if ($className === null)
             $className = get_called_class();
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
@@ -275,12 +275,19 @@ abstract class Document extends CModel {
 
     protected function ensurePk() {
         if ($this->_pk === null)
-            if (!empty($this->primaryKey))
-                $this->_pk = $this->getPrimaryKey();
-            elseif (!empty($this->_object->key))
+            if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null)
+                $this->_pk = $this->jsonEncode($this->getPrimaryKey());
+            elseif ($this->_object->getKey() !== null)
                 $this->_pk = $this->_object->getKey();
-        if ($this->_pk !== null && is_array($this->_pk))
-            $this->_pk = implode('_', $this->_pk);
+    }
+
+    protected function jsonEncode($var) {
+        /**
+         * Return var if already valid JSON
+         */
+        if (is_null($var) || is_bool($var) || (is_numeric($var) && !is_string($var)) || (is_string($var) && \CJSON::decode($var) !== null))
+            return $var;
+        return \CJSON::encode($var);
     }
 
     /* public function cache($duration, $dependency=null, $queryCount=1) {
@@ -298,6 +305,28 @@ abstract class Document extends CModel {
 
     public function attributeNames() {
         return array_keys($this->getMetaData()->attributes);
+    }
+
+    /**
+     * Retrieves a list of models based on the current search/filter conditions.
+     * @return \ext\activedocument\DataProvider the data provider that can return the models based on the search/filter conditions.
+     */
+    public function search() {
+        // Warning: Please modify the following code to remove attributes that
+        // should not be searched.
+
+        $criteria = new Criteria;
+
+        foreach ($this->getMetaData()->getAttributes() as $name => $attribute) {
+            if ($attribute->type === 'string')
+                $criteria->compare($name, $this->$name, true);
+            else
+                $criteria->compare($name, $this->$name);
+        }
+
+        return new DataProvider($this, array(
+            'criteria' => $criteria,
+        ));
     }
 
     /**
@@ -495,13 +524,13 @@ abstract class Document extends CModel {
         else
             return false;
     }
-    
+
     public function count($criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.count()', 'ext.activedocument.' . get_class($this));
         $c = new Criteria;
-        if(is_array($criteria) || $criteria instanceof Criteria)
+        if (is_array($criteria) || $criteria instanceof Criteria)
             $c->mergeWith($criteria);
-        if(!empty($params))
+        if (!empty($params))
             $c->params = array_merge($c->params, $params);
         return $this->_container->count($c);
     }
@@ -513,6 +542,7 @@ abstract class Document extends CModel {
     public function findByPk($key, $criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
+        $key = $this->jsonEncode($key);
         return $this->populateDocument($this->loadObject($key));
     }
 
@@ -521,7 +551,7 @@ abstract class Document extends CModel {
         $this->beforeFind();
 
         $objects = array();
-        if(empty($criteria) && empty($params)) {
+        if (empty($criteria) && empty($params)) {
             $keys = $this->_container->getKeys();
             if (empty($keys))
                 return array();
@@ -529,9 +559,9 @@ abstract class Document extends CModel {
                 $objects[] = $this->loadObject($key);
         } else {
             $c = new Criteria;
-            if(!empty($criteria))
+            if (!empty($criteria))
                 $c->mergeWith($criteria);
-            if(!empty($params))
+            if (!empty($params))
                 $c->params = array_merge($c->params, $params);
             $objects = $this->_container->find($c);
         }
@@ -545,17 +575,19 @@ abstract class Document extends CModel {
         if (empty($keys))
             return array();
 
+        $keys = array_map(array($this, 'jsonEncode'), $keys);
+
         $objects = array();
-        if(empty($criteria) && empty($params))
+        if (empty($criteria) && empty($params))
             foreach ($keys as $key)
                 $objects[] = $this->loadObject($key);
         else {
             $c = new Criteria;
-            if(!empty($criteria))
+            if (!empty($criteria))
                 $c->mergeWith($criteria);
-            if(!empty($params))
+            if (!empty($params))
                 $c->params = array_merge($c->params, $params);
-            foreach($keys as $key)
+            foreach ($keys as $key)
                 $c->addInput($this->getContainerName(), $key);
             $objects = $this->_container->find($c);
         }
