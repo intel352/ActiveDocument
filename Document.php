@@ -306,6 +306,12 @@ abstract class Document extends CModel {
     public function attributeNames() {
         return array_keys($this->getMetaData()->attributes);
     }
+    
+    public function rules() {
+        return array_merge(parent::rules(),array(
+            array(implode(', ', $this->attributeNames()), 'safe', 'on'=>'search'),
+        ));
+    }
 
     /**
      * Retrieves a list of models based on the current search/filter conditions.
@@ -324,7 +330,7 @@ abstract class Document extends CModel {
                 $criteria->compare($name, $this->$name);
         }
 
-        return new DataProvider($this, array(
+        return new DataProvider(get_class($this), array(
             'criteria' => $criteria,
         ));
     }
