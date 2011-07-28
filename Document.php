@@ -321,7 +321,7 @@ abstract class Document extends CModel {
         // Warning: Please modify the following code to remove attributes that
         // should not be searched.
 
-        $criteria = new Criteria;
+        $criteria = $this->getCriteria();
 
         foreach ($this->getMetaData()->getAttributes() as $name => $attribute) {
             if ($attribute->type === 'string')
@@ -353,9 +353,13 @@ abstract class Document extends CModel {
     public function getAdapter() {
         return $this->getConnection()->getAdapter();
     }
+    
+    public function containerName() {
+        return get_class($this);
+    }
 
     public function getContainerName() {
-        return get_class($this);
+        return $this->containerName();
     }
 
     /**
