@@ -99,15 +99,31 @@ class Adapter extends \ext\activedocument\Adapter {
     
     protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
         $mr = $this->getMapReduce(true);
-        if (!empty($criteria->container))
-            $mr->addBucket($criteria->container);
 
+        $mode = null;        
         if (!empty($criteria->inputs))
             foreach ($criteria->inputs as $input)
-                if (empty($input['key']))
+                if (empty($input['key']) && (!$mode || $mode=='bucket')) {
+                    if(!$mode)
+                        $mode = 'bucket';
                     $mr->addBucket($input['container']);
-                else
+                }elseif (!$mode || $mode=='input') {
+                    if(!$mode)
+                        $mode = 'input';
                     $mr->addBucketKeyData($input['container'], $input['key'], $input['data']);
+                }
+        
+        if (!empty($criteria->container) && (!$mode || $mode=='bucket'))
+            $mr->addBucket($criteria->container);
+        
+        /**
+         * Filter non-existent results
+         */
+        /*$mr->reduce('
+            function(values){
+                return Riak.filterNotFound(values);
+            }
+            ');*/
                 
         if (!empty($criteria->phases))
             foreach ($criteria->phases as $phase)

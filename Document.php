@@ -14,12 +14,11 @@ use \Yii,
  * @author $Author$
  */
 abstract class Document extends CModel {
-    
-	const BELONGS_TO='BelongsToRelation';
-	const HAS_ONE='HasOneRelation';
-	const HAS_MANY='HasManyRelation';
-	const MANY_MANY='ManyManyRelation';
-	const STAT='StatRelation';
+    const BELONGS_TO='BelongsToRelation';
+    const HAS_ONE='HasOneRelation';
+    const HAS_MANY='HasManyRelation';
+    const MANY_MANY='ManyManyRelation';
+    const STAT='StatRelation';
     const NESTED_ONE=1;
     const NESTED_MANY=2;
     const NESTED_INDEX=3;
@@ -94,11 +93,11 @@ abstract class Document extends CModel {
     public function init() {
         
     }
-    
+
     public function getOwner() {
         return $this->_owner;
     }
-    
+
     public function setOwner(Document $owner) {
         $this->_owner = $owner;
     }
@@ -214,7 +213,7 @@ abstract class Document extends CModel {
 
           $scopes = $this->scopes();
           if (isset($scopes[$name])) {
-          $this->getDbCriteria()->mergeWith($scopes[$name]);
+          $this->getCriteria()->mergeWith($scopes[$name]);
           return $this;
           } */
 
@@ -282,7 +281,7 @@ abstract class Document extends CModel {
     public function equals(Document $document) {
         return $this->getContainerName() === $document->getContainerName() && $this->getPrimaryKey() === $document->getPrimaryKey();
     }
-    
+
     public function primaryKey() {
         return '_pk';
     }
@@ -341,10 +340,10 @@ abstract class Document extends CModel {
     public function attributeNames() {
         return array_keys($this->getMetaData()->attributes);
     }
-    
+
     public function rules() {
-        return array_merge(parent::rules(),array(
-            array(implode(', ', $this->attributeNames()), 'safe', 'on'=>'search'),
+        return array_merge(parent::rules(), array(
+            array(implode(', ', $this->attributeNames()), 'safe', 'on' => 'search'),
         ));
     }
 
@@ -353,9 +352,6 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\DataProvider the data provider that can return the models based on the search/filter conditions.
      */
     public function search() {
-        // Warning: Please modify the following code to remove attributes that
-        // should not be searched.
-
         $criteria = new Criteria;
 
         foreach ($this->getMetaData()->getAttributes() as $name => $attribute) {
@@ -374,9 +370,9 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Connection
      */
     public function getConnection() {
-        if(empty(static::$connName))
+        if (empty(static::$connName))
             throw new Exception(Yii::t('yii', 'Active Document requires that Document::$connName not be empty.'));
-        
+
         if (array_key_exists(static::$connName, self::$connections) && self::$connections[static::$connName] !== null)
             return self::$connections[static::$connName];
         else {
@@ -384,7 +380,7 @@ abstract class Document extends CModel {
             if (self::$connections[static::$connName] instanceof Connection)
                 return self::$connections[static::$connName];
             else
-                throw new Exception(Yii::t('yii', 'Active Document requires a "'.static::$connName.'" Connection application component.'));
+                throw new Exception(Yii::t('yii', 'Active Document requires a "' . static::$connName . '" Connection application component.'));
         }
     }
 
@@ -392,8 +388,12 @@ abstract class Document extends CModel {
         return $this->getConnection()->getAdapter();
     }
 
-    public function getContainerName() {
+    public function containerName() {
         return get_class($this);
+    }
+
+    public function getContainerName() {
+        return $this->containerName();
     }
 
     /**
@@ -571,12 +571,10 @@ abstract class Document extends CModel {
 
     public function count($criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.count()', 'ext.activedocument.' . get_class($this));
-        $c = new Criteria;
-        if (is_array($criteria) || $criteria instanceof Criteria)
-            $c->mergeWith($criteria);
+		$this->applyScopes($criteria);
         if (!empty($params))
-            $c->params = array_merge($c->params, $params);
-        return $this->_container->count($c);
+            $criteria->mergeWith(array('params'=>$params));
+        return $this->_container->count($criteria);
     }
 
     /**
@@ -586,6 +584,7 @@ abstract class Document extends CModel {
     public function findByPk($key, $criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
+		$this->applyScopes($criteria);
         $key = $this->jsonEncode($key);
         return $this->populateDocument($this->loadObject($key));
     }
@@ -593,6 +592,7 @@ abstract class Document extends CModel {
     public function findAll($criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
+		$this->applyScopes($criteria);
 
         $objects = array();
         if (empty($criteria) && empty($params)) {
@@ -602,12 +602,9 @@ abstract class Document extends CModel {
             foreach ($keys as $key)
                 $objects[] = $this->loadObject($key);
         } else {
-            $c = new Criteria;
-            if (!empty($criteria))
-                $c->mergeWith($criteria);
             if (!empty($params))
-                $c->params = array_merge($c->params, $params);
-            $objects = $this->_container->find($c);
+                $criteria->mergeWith(array('params'=>$params));
+            $objects = $this->_container->find($criteria);
         }
 
         return $this->populateDocuments($objects);
@@ -616,6 +613,7 @@ abstract class Document extends CModel {
     public function findAllByPk(array $keys, $criteria=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findAllByPk()', 'ext.activedocument.' . get_class($this));
         $this->beforeFind();
+		$this->applyScopes($criteria);
         if (empty($keys))
             return array();
 
@@ -626,17 +624,53 @@ abstract class Document extends CModel {
             foreach ($keys as $key)
                 $objects[] = $this->loadObject($key);
         else {
-            $c = new Criteria;
-            if (!empty($criteria))
-                $c->mergeWith($criteria);
             if (!empty($params))
-                $c->params = array_merge($c->params, $params);
+                $criteria->mergeWith(array('params'=>$params));
             foreach ($keys as $key)
-                $c->addInput($this->getContainerName(), $key);
-            $objects = $this->_container->find($c);
+                $criteria->addInput($this->getContainerName(), $key);
+            $objects = $this->_container->find($criteria);
         }
 
         return $this->populateDocuments($objects);
+    }
+
+    /**
+     * Applies the query scopes to the given criteria.
+     * This method merges {@link criteria} with the given criteria parameter.
+     * It then resets {@link criteria} to be null.
+     * @param Criteria $criteria the query criteria. This parameter may be modified by merging {@link criteria}.
+     */
+    public function applyScopes(&$criteria) {
+        /*if (!empty($criteria->scopes)) {
+            $scs = $this->scopes();
+            $c = $this->getCriteria();
+            foreach ((array) $criteria->scopes as $k => $v) {
+                if (is_integer($k)) {
+                    if (is_string($v)) {
+                        if (isset($scs[$v])) {
+                            $c->mergeWith($scs[$v], true);
+                            continue;
+                        }
+                        $scope = $v;
+                        $params = array();
+                    } else if (is_array($v)) {
+                        $scope = key($v);
+                        $params = current($v);
+                    }
+                } else if (is_string($k)) {
+                    $scope = $k;
+                    $params = $v;
+                }
+
+                call_user_func_array(array($this, $scope), (array) $params);
+            }
+        }*/
+
+        if (isset($c) || ($c = $this->getCriteria(false)) !== null) {
+            $c->mergeWith($criteria);
+            $criteria = $c;
+            $this->_c = null;
+        }
     }
 
     /**
