@@ -49,6 +49,10 @@ abstract class Object extends \CComponent {
         /**
          * Sync data
          */
+        $this->syncData($data);
+    }
+    
+    protected function syncData($data) {
         if($data!==null)
             $this->setObjectData($data);
         $this->data = $this->getObjectData();

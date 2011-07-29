@@ -7,12 +7,35 @@ use \Yii,
     \CEvent,
     \CModelEvent;
 
+/**
+ * Document
+ *
+ * @version $Version$
+ * @author $Author$
+ */
 abstract class Document extends CModel {
+    
+	const BELONGS_TO='BelongsToRelation';
+	const HAS_ONE='HasOneRelation';
+	const HAS_MANY='HasManyRelation';
+	const MANY_MANY='ManyManyRelation';
+	const STAT='StatRelation';
+    const NESTED_ONE=1;
+    const NESTED_MANY=2;
+    const NESTED_INDEX=3;
 
     /**
-     * @var \ext\activedocument\Connection
+     * Override with component connection name, if not 'conn'
+     *
+     * @var string
      */
-    public static $conn;
+    public static $connName = 'conn';
+    /**
+     * Array of connections
+     *
+     * @var array \ext\activedocument\Connection
+     */
+    public static $connections = array();
     private static $_models = array();
     /**
      * @var \ext\activedocument\MetaData
@@ -21,7 +44,7 @@ abstract class Document extends CModel {
     /**
      * @var \ext\activedocument\Criteria
      */
-    private $_c;        // query criteria (used by finder only)
+    private $_c;
     /**
      * @var \ext\activedocument\Container
      */
@@ -33,6 +56,10 @@ abstract class Document extends CModel {
     protected $_new = false;
     protected $_attributes = array();
     protected $_pk;
+    /**
+     * @var \ext\activedocument\Document
+     */
+    protected $_owner;
 
     /**
      * @return \ext\activedocument\Document
@@ -66,6 +93,14 @@ abstract class Document extends CModel {
 
     public function init() {
         
+    }
+    
+    public function getOwner() {
+        return $this->_owner;
+    }
+    
+    public function setOwner(Document $owner) {
+        $this->_owner = $owner;
     }
 
     protected function newObject() {
@@ -247,7 +282,7 @@ abstract class Document extends CModel {
     public function equals(Document $document) {
         return $this->getContainerName() === $document->getContainerName() && $this->getPrimaryKey() === $document->getPrimaryKey();
     }
-
+    
     public function primaryKey() {
         return '_pk';
     }
@@ -339,14 +374,17 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Connection
      */
     public function getConnection() {
-        if (self::$conn !== null)
-            return self::$conn;
+        if(empty(static::$connName))
+            throw new Exception(Yii::t('yii', 'Active Document requires that Document::$connName not be empty.'));
+        
+        if (array_key_exists(static::$connName, self::$connections) && self::$connections[static::$connName] !== null)
+            return self::$connections[static::$connName];
         else {
-            self::$conn = Yii::app()->getComponent('conn');
-            if (self::$conn instanceof Connection)
-                return self::$conn;
+            self::$connections[static::$connName] = Yii::app()->getComponent(static::$connName);
+            if (self::$connections[static::$connName] instanceof Connection)
+                return self::$connections[static::$connName];
             else
-                throw new Exception(Yii::t('yii', 'Active Document requires a "conn" Connection application component.'));
+                throw new Exception(Yii::t('yii', 'Active Document requires a "'.static::$connName.'" Connection application component.'));
         }
     }
 

@@ -1,14 +1,17 @@
 <?php
 
 namespace ext\activedocument;
-use \Yii, \CApplicationComponent, \CLogger;
+
+use \Yii,
+    \CApplicationComponent,
+    \CLogger;
 
 class Connection extends CApplicationComponent {
 
     public $driver;
-    public $schemaCachingDuration=0;
-    public $schemaCachingExclude=array();
-    public $schemaCacheID='activecache';
+    public $schemaCachingDuration = 0;
+    public $schemaCachingExclude = array();
+    public $schemaCacheID = 'activecache';
     /* public $queryCachingDuration=0;
       public $queryCachingDependency;
       public $queryCachingCount=0;
@@ -20,6 +23,7 @@ class Connection extends CApplicationComponent {
     public $containerPrefix;
     /* public $initSQLs; */
     public $driverMap = array(
+        'memory' => '\ext\activedocument\drivers\memory\Adapter',
         'riak' => '\ext\activedocument\drivers\riak\Adapter',
     );
     protected $_attributes = array();
@@ -129,61 +133,61 @@ class Connection extends CApplicationComponent {
         return $this->getAdapter()->getCommandBuilder();
     }
 
-    /*public function getColumnCase() {
-        return $this->getAttribute(ACO::ATTR_CASE);
-    }
+    /* public function getColumnCase() {
+      return $this->getAttribute(ACO::ATTR_CASE);
+      }
 
-    public function setColumnCase($value) {
-        $this->setAttribute(ACO::ATTR_CASE, $value);
-    }
+      public function setColumnCase($value) {
+      $this->setAttribute(ACO::ATTR_CASE, $value);
+      }
 
-    public function getNullConversion() {
-        return $this->getAttribute(ACO::ATTR_ORACLE_NULLS);
-    }
+      public function getNullConversion() {
+      return $this->getAttribute(ACO::ATTR_ORACLE_NULLS);
+      }
 
-    public function setNullConversion($value) {
-        $this->setAttribute(ACO::ATTR_ORACLE_NULLS, $value);
-    }
+      public function setNullConversion($value) {
+      $this->setAttribute(ACO::ATTR_ORACLE_NULLS, $value);
+      }
 
-    public function getAutoCommit() {
-        return $this->getAttribute(ACO::ATTR_AUTOCOMMIT);
-    }
+      public function getAutoCommit() {
+      return $this->getAttribute(ACO::ATTR_AUTOCOMMIT);
+      }
 
-    public function setAutoCommit($value) {
-        $this->setAttribute(ACO::ATTR_AUTOCOMMIT, $value);
-    }
+      public function setAutoCommit($value) {
+      $this->setAttribute(ACO::ATTR_AUTOCOMMIT, $value);
+      }
 
-    public function getPersistent() {
-        return $this->getAttribute(ACO::ATTR_PERSISTENT);
-    }
+      public function getPersistent() {
+      return $this->getAttribute(ACO::ATTR_PERSISTENT);
+      }
 
-    public function setPersistent($value) {
-        return $this->setAttribute(ACO::ATTR_PERSISTENT, $value);
-    }
+      public function setPersistent($value) {
+      return $this->setAttribute(ACO::ATTR_PERSISTENT, $value);
+      }
 
-    public function getClientVersion() {
-        return $this->getAttribute(ACO::ATTR_CLIENT_VERSION);
-    }
+      public function getClientVersion() {
+      return $this->getAttribute(ACO::ATTR_CLIENT_VERSION);
+      }
 
-    public function getConnectionStatus() {
-        return $this->getAttribute(ACO::ATTR_CONNECTION_STATUS);
-    }
+      public function getConnectionStatus() {
+      return $this->getAttribute(ACO::ATTR_CONNECTION_STATUS);
+      }
 
-    public function getPrefetch() {
-        return $this->getAttribute(ACO::ATTR_PREFETCH);
-    }
+      public function getPrefetch() {
+      return $this->getAttribute(ACO::ATTR_PREFETCH);
+      }
 
-    public function getServerInfo() {
-        return $this->getAttribute(ACO::ATTR_SERVER_INFO);
-    }
+      public function getServerInfo() {
+      return $this->getAttribute(ACO::ATTR_SERVER_INFO);
+      }
 
-    public function getServerVersion() {
-        return $this->getAttribute(ACO::ATTR_SERVER_VERSION);
-    }
+      public function getServerVersion() {
+      return $this->getAttribute(ACO::ATTR_SERVER_VERSION);
+      }
 
-    public function getTimeout() {
-        return $this->getAttribute(ACO::ATTR_TIMEOUT);
-    }*/
+      public function getTimeout() {
+      return $this->getAttribute(ACO::ATTR_TIMEOUT);
+      } */
 
     public function getAttribute($name) {
         $this->setActive(true);

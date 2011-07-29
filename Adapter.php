@@ -59,7 +59,7 @@ abstract class Adapter extends CComponent {
     }
 
     /**
-     * @return Connection storage connection. The connection is active.
+     * @return \ext\activedocument\Connection Data storage connection. The connection is active.
      */
     public function getConnection() {
         return $this->_connection;

@@ -113,8 +113,8 @@ class Adapter extends \ext\activedocument\Adapter {
             foreach ($criteria->phases as $phase)
                 $mr->addPhase($phase['phase'], $phase['function'], $phase['args']);
         
-        if(!empty($criteria->search)) {
-            foreach($criteria->search as $column)
+        if(!empty($criteria->search))
+            foreach($criteria->search as $column) {
                 /**
                  * @todo preg_quote may not be appropriate for js regex
                  * @todo lowercasing the strings may not be a good idea...

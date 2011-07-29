@@ -12,7 +12,7 @@ class Container extends \ext\activedocument\Container {
     /**
      * @return \riiak\Bucket
      */
-    protected function loadContainer() {
+    protected function loadContainerInstance() {
         return $this->_adapter->getStorageInstance()->bucket($this->_name);
     }
 
@@ -22,7 +22,7 @@ class Container extends \ext\activedocument\Container {
     }
 
     public function getProperty($key) {
-        if(!key_exists($key, $this->_properties))
+        if(!array_key_exists($key, $this->_properties))
             $this->_properties[$key] = $this->_containerInstance->getProperty($key);
         return $this->_properties[$key];
     }
@@ -44,20 +44,6 @@ class Container extends \ext\activedocument\Container {
     public function delete() {
         return $this->deleteKeys($this->getKeys());
     }
-    
-    public function count(\ext\activedocument\Criteria $criteria=null) {
-        if(!($criteria instanceof \ext\activedocument\Criteria))
-            $criteria = new \ext\activedocument\Criteria;
-        $criteria->container = $this->_name;
-        return $this->_adapter->count($criteria);
-    }
-    
-    public function find(\ext\activedocument\Criteria $criteria=null) {
-        if(!($criteria instanceof \ext\activedocument\Criteria))
-            $criteria = new \ext\activedocument\Criteria;
-        $criteria->container = $this->_name;
-        return $this->_adapter->find($criteria);
-    }
 
     /**
      * @return array 
@@ -70,15 +56,6 @@ class Container extends \ext\activedocument\Container {
         foreach($keys as $key)
             $this->getObject($key)->delete();
         return true;
-    }
-    
-    /**
-     * @param string $key
-     * @param mixed $data
-     * @return \ext\activedocument\drivers\riak\Object
-     */
-    public function createObject($key=null, $data=null) {
-        return $this->getObject($key, $data, true);
     }
 
     /**
