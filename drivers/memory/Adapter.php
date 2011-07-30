@@ -19,106 +19,165 @@ class Adapter extends \ext\activedocument\Adapter {
     }
 
     public function count(\ext\activedocument\Criteria $criteria) {
-        $results = $this->applySearchFilters($criteria);
-        
-        /**
-         * @todo count results
-         */
-        return false;
+        return count($this->applySearchFilters($criteria));
     }
 
     public function find(\ext\activedocument\Criteria $criteria) {
-        $results = $this->applySearchFilters($criteria);
-        
+        $values = $this->applySearchFilters($criteria);
+
         /**
          * Apply default sorting
          */
         if (!empty($criteria->order)) {
             $orderBy = explode(',', $criteria->order);
-            foreach($orderBy as $order) {
-                preg_match('/(?:(\w+)\.)?(\w+)(?:\s+(ASC|DESC))?/',trim($order),$matches);
+            foreach ($orderBy as $order) {
+                preg_match('/(?:(\w+)\.)?(\w+)(?:\s+(ASC|DESC))?/', trim($order), $matches);
                 $field = $matches[2];
-                $desc = (isset($matches[3]) && strcasecmp($matches[3], 'desc')===0);
-                /**
-                 * @todo apply sorting here
-                 */
+                $desc = (isset($matches[3]) && strcasecmp($matches[3], 'desc') === 0);
+                usort($values, function($a, $b)use($field, $desc) {
+                        $value1 = $desc ? $b['value'] : $a['value'];
+                        $value1 = ($value1===null)?null:$value1->$field;
+                        
+                        $value2 = $desc ? $a['value'] : $b['value'];
+                        $value2 = ($value2===null)?null:$value2->$field;
+
+                        if ($value1 < $value2)
+                            return -1;
+                        elseif ($value1 === $value2)
+                            return 0;
+                        elseif ($value1 > $value2)
+                            return 1;
+                    });
             }
         }
-        if ($criteria->limit > 0) {
-            $offset = $criteria->offset > 0 ? $criteria->offset : 0;
-            /**
-             * @todo limit results: $offset, $offset + $criteria->limit
-             */
-        }
-        $objects = array();
-        if (!empty($results))
-            foreach ($results as $result)
-                $objects[] = $this->populateObject($result);
-        return $objects;
-    }
-    
-    protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
-        /**
-         * @todo Search specified container
-         */
-        /*if (!empty($criteria->container))
-            $mr->addBucket($criteria->container);*/
 
         /**
-         * @todo Search specified containers *or* container/key combos
+         * Apply limit
          */
-        /*if (!empty($criteria->inputs))
-            foreach ($criteria->inputs as $input)
-                if (empty($input['key']))
-                    $mr->addBucket($input['container']);
-                else
-                    $mr->addBucketKeyData($input['container'], $input['key'], $input['data']);*/
-                
-        /**
-         * @todo Throw exception about phases not being supported for memory
-         */
-        /*if (!empty($criteria->phases))
-            foreach ($criteria->phases as $phase)
-                $mr->addPhase($phase['phase'], $phase['function'], $phase['args']);*/
+        if ($criteria->limit > 0) {
+            $offset = $criteria->offset > 0 ? $criteria->offset : 0;
+            $values = array_slice($values, $offset, $criteria->limit);
+        }
         
-        if(!empty($criteria->search))
-            foreach($criteria->search as $column) {
+        $objects = array();
+        if (!empty($values))
+            foreach ($values as $value)
+                $objects[] = $this->populateObject($value);
+        return $objects;
+    }
+
+    protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
+        $values = array();
+        
+        $assignValue = function($containerName, $key, $value) {
+            return array('container'=>$containerName, 'key'=>$key, 'value'=>$value);
+        };
+        
+        $buildInputs = function($containerName, $arr) use(&$values, $assignValue) {
+            array_map(function($value, $key) use($containerName, &$values, $assignValue) {
+                    $values[]=$assignValue($containerName, $key, $value);
+                },
+                array_values($arr),
+                array_keys($arr));
+        };
+
+        /**
+         * Fill $objects array based on criteria-specified inputs (container = all keys, vs container/key pairs)
+         */
+        $mode = null;
+        if (!empty($criteria->inputs))
+            foreach ($criteria->inputs as $input)
+                if (empty($input['key']) && (!$mode || $mode == 'container')) {
+                    if (!$mode)
+                        $mode = 'container';
+                    $buildInputs($input['container'], (array) $this->getContainer($containerName)->getContainerInstance()->objects);
+                }elseif (!$mode || $mode == 'input') {
+                    if (!$mode)
+                        $mode = 'input';
+                    $values[]=$assignValue($input['container'], $input['key'], $this->getContainer($containerName)->getContainerInstance()->objects[$input['key']]);
+                }
+
+        if (!empty($criteria->container) && (!$mode || $mode == 'container'))
+            $buildInputs($criteria->container, (array) $this->getContainer($criteria->container)->getContainerInstance()->objects);
+
+        /**
+         * Map/reduce phases, via functionality provided by PHP array_map, array_reduce
+         */
+        if (!empty($criteria->phases))
+            foreach ($criteria->phases as $phase) {
+                switch ($phase['phase']) {
+                    case 'map':
+                        $values = array_map($phase['function'], $values, $phase['args']);
+                        break;
+                    case 'reduce':
+                        $values = array_reduce($values, $phase['function'], $phase['args']);
+                        break;
+                    /**
+                     * @todo add array_filter?
+                     */
+                }
+            }
+
+        /**
+         * Apply column searching criteria (preg match)
+         */
+        if (!empty($criteria->search))
+            foreach ($criteria->search as $column) {
                 /**
                  * @todo preg_quote may not be appropriate for js regex
                  * @todo lowercasing the strings may not be a good idea...
                  */
-                $column['keyword'] = !$column['escape'] ?: preg_quote($column['keyword'],'/');
-                /**
-                 * @todo search object columns for keyword (regex match)
-                 */
+                $column['keyword'] = !$column['escape'] ? : preg_quote($column['keyword'], '/');
+                $values = array_map(function($object)use($column) {
+                        if ($object['value'] === null)
+                            return null;
+
+                        $col = strtolower($object['value']->{$column['column']});
+                        if (($match = preg_match('/' . $column['keyword'] . '/i', $col)))
+                            if (($column['like'] && $match) || (!$column['like'] && !$match))
+                                return $object;
+                        return null;
+                    }, $values);
             }
-        
-        if(!empty($criteria->columns))
-            foreach($criteria->columns as $column) {
-                /**
-                 * @todo compare column values via operator
-                 */
+
+        /**
+         * Apply column/value comparison criteria
+         */
+        if (!empty($criteria->columns))
+            foreach ($criteria->columns as $column) {
+                $values = array_map(function($object)use($column) {
+                        if ($object['value'] === null)
+                            return null;
+
+                        $success = Yii::app()->evaluateExpression($object['value']->{$column['column']} . ' ' . $column['operator'] . ' ' . $column['value']);
+                        if ($success)
+                            return $object;
+                        return null;
+                    }, $values);
             }
-        
+
         /**
          * @todo Implement column conditions
          */
-        if(!empty($criteria->array))
+        if (!empty($criteria->array))
             ;
-        
+
         /**
          * @todo Implement "between" conditions
          */
-        if(!empty($criteria->between))
+        if (!empty($criteria->between))
             ;
         
         /**
-         * @todo results
+         * Filter out null records
          */
+        $values = array_filter($values, function($var){return !is_null($var);});
+
+        return $values;
     }
 
     protected function populateObject($arr) {
-        return new Object($this->getContainer($arr['container']), $arr['key'], $arr['data'], true);
+        return new Object($this->getContainer($arr['container']), $arr['key'], $arr['value'], true);
     }
 
 }

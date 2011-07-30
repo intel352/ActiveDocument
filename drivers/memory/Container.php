@@ -35,12 +35,12 @@ class Container extends \ext\activedocument\Container {
      * @return array 
      */
     public function getKeys() {
-        return array_keys($this->_containerInstance);
+        return array_keys((array) $this->_containerInstance->objects);
     }
     
     public function deleteKeys(array $keys) {
         foreach($keys as $key)
-            unset($this->_containerInstance[$key]);
+            unset($this->_containerInstance->objects[$key]);
         return true;
     }
 

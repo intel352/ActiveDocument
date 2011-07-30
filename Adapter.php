@@ -21,6 +21,10 @@ abstract class Adapter extends CComponent {
     abstract protected function loadStorageInstance(array $attributes=null);
 
     abstract protected function loadContainer($name);
+    
+    abstract public function count(Criteria $criteria);
+    
+    abstract public function find(Criteria $criteria);
 
     public function __construct(Connection $conn, array $attributes=null) {
         $this->_connection = $conn;
@@ -109,9 +113,5 @@ abstract class Adapter extends CComponent {
             return $this->_containers[$name] = $container;
         }
     }
-    
-    abstract public function count(Criteria $criteria);
-    
-    abstract public function find(Criteria $criteria);
 
 }
