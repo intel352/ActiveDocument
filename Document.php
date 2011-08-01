@@ -295,7 +295,7 @@ abstract class Document extends CModel {
             $return = array();
             foreach ($pk as $pkField) {
                 $isNull = & is_null($this->{$pkField}) || $this->{$pkField} === '';
-                $return[$pkField] = $this->{$pkField};
+                $return[$pkField] = is_null($this->{$pkField})?'':$this->{$pkField};
             }
 
             /**

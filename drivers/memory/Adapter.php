@@ -73,7 +73,7 @@ class Adapter extends \ext\activedocument\Adapter {
             return array('container'=>$containerName, 'key'=>$key, 'value'=>$value);
         };
         
-        $buildInputs = function($containerName, $arr) use(&$values, $assignValue) {
+        $buildInputs = function($containerName,array $arr) use(&$values, $assignValue) {
             array_map(function($value, $key) use($containerName, &$values, $assignValue) {
                     $values[]=$assignValue($containerName, $key, $value);
                 },
@@ -90,11 +90,12 @@ class Adapter extends \ext\activedocument\Adapter {
                 if (empty($input['key']) && (!$mode || $mode == 'container')) {
                     if (!$mode)
                         $mode = 'container';
-                    $buildInputs($input['container'], (array) $this->getContainer($containerName)->getContainerInstance()->objects);
+                    $buildInputs($input['container'], (array) $this->getContainer($input['container'])->getContainerInstance()->objects);
                 }elseif (!$mode || $mode == 'input') {
                     if (!$mode)
                         $mode = 'input';
-                    $values[]=$assignValue($input['container'], $input['key'], $this->getContainer($containerName)->getContainerInstance()->objects[$input['key']]);
+                    if(array_key_exists($input['key'], (array) $this->getContainer($input['container'])->getContainerInstance()->objects))
+                        $values[]=$assignValue($input['container'], $input['key'], $this->getContainer($input['container'])->getContainerInstance()->objects[$input['key']]);
                 }
 
         if (!empty($criteria->container) && (!$mode || $mode == 'container'))
