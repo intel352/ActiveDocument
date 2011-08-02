@@ -48,7 +48,7 @@ class MetaData extends CComponent {
     }
 
     public function getAttributes() {
-        return $this->getProperties()->getArrayCopy();
+        return (array) $this->getProperties();
     }
 
     public function getAttributeDefaults() {
@@ -59,7 +59,7 @@ class MetaData extends CComponent {
                         $attrDefs[$k] = $v->defaultValue;
                 }, $this->_attributeDefaults);
         }
-        return $this->_attributeDefaults->getArrayCopy();
+        return (array) $this->_attributeDefaults;
     }
 
     /**
@@ -68,8 +68,10 @@ class MetaData extends CComponent {
     public function getClassMeta() {
         if ($this->_classMeta !== null)
             return $this->_classMeta;
-        $this->_classMeta = new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS);
-        $this->_classMeta->properties = new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS);
+        $this->_classMeta = new \ArrayObject(array(
+                'properties' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
+                'relations' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
+                ), \ArrayObject::ARRAY_AS_PROPS);
 
         $reflectionClass = $this->getReflectionClass();
         /**
@@ -99,13 +101,20 @@ class MetaData extends CComponent {
                 $this->_classMeta->properties->{$prop->name}->class = $prop->class;
             }
         }
+
+        foreach ($this->_model->relations() as $name => $config)
+            $this->addRelation($name, $config);
+
         return $this->_classMeta;
     }
 
     /**
-     * @return \ArrayObject
+     * @param bool $asArray
+     * @return array|\ArrayObject 
      */
-    public function getProperties() {
+    public function getProperties($asArray=true) {
+        if($asArray)
+            return (array) $this->getClassMeta()->properties;
         return $this->getClassMeta()->properties;
     }
 
@@ -171,5 +180,57 @@ class MetaData extends CComponent {
                     $prop->$k = $v;
             }, $this->_classMeta->properties->$varName);
     }
+
+    /**
+     * @param bool $asArray
+     * @return array|\ArrayObject 
+     */
+    public function getRelations($asArray=true) {
+        if($asArray)
+            return (array) $this->getClassMeta()->relations;
+        return $this->getClassMeta()->relations;
+    }
+
+	/**
+	 * Adds a relation.
+	 *
+	 * $config is an array with the following elements:
+	 * relation type, the related active record class
+	 *
+	 * @throws Exception
+	 * @param string $name $name Name of the relation.
+	 * @param array $config $config Relation parameters.
+     * @return void
+	 */
+	public function addRelation($name,$config)
+	{
+		if(isset($config[0],$config[1]))
+			$this->getClassMeta()->relations[$name]=new $config[0]($name,$config[1],array_slice($config,2));
+		else
+			throw new Exception(Yii::t('yii','Active document "{class}" has an invalid configuration for relation "{relation}". It must specify the relation type and the related active record class.',
+                array('{class}'=>get_class($this->_model),'{relation}'=>$name)));
+	}
+
+	/**
+	 * Checks if there is a relation with specified name defined.
+	 *
+	 * @param string $name $name Name of the relation.
+	 * @return boolean
+	 */
+	public function hasRelation($name)
+	{
+		return isset($this->getClassMeta()->relations[$name]);
+	}
+
+	/**
+	 * Deletes a relation with specified name.
+	 *
+	 * @param string $name $name
+	 * @return void
+	 */
+	public function removeRelation($name)
+	{
+		unset($this->getClassMeta()->relations[$name]);
+	}
 
 }
