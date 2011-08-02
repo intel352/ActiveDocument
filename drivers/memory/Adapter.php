@@ -150,7 +150,8 @@ class Adapter extends \ext\activedocument\Adapter {
                         if ($object['value'] === null)
                             return null;
 
-                        $success = Yii::app()->evaluateExpression($object['value']->{$column['column']} . ' ' . $column['operator'] . ' ' . $column['value']);
+                        $success = \Yii::app()->evaluateExpression('($columnValue ' . $column['operator'] . ' $userValue)',
+                            array('columnValue'=>$object['value']->{$column['column']}, 'userValue'=>$column['value']));
                         if ($success)
                             return $object;
                         return null;
