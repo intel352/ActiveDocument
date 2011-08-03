@@ -113,7 +113,7 @@ class Criteria extends CComponent {
         return $this;
     }
 
-    public function addColumnCondition($columns, $operator='=') {
+    public function addColumnCondition($columns, $operator='==') {
         foreach ($columns as $name => $value)
             $this->columns[] = array('column' => $name, 'value' => $value, 'operator' => $operator);
         return $this;
@@ -144,7 +144,7 @@ class Criteria extends CComponent {
         else
             $value="$value";
 
-        if (preg_match('/^(?:\s*(<>|<=|>=|<|>|=))?(.*)$/', $value, $matches)) {
+        if (preg_match('/^(?:\s*(<>|<=|>=|<|>|==|===|!=|!==))?(.*)$/', $value, $matches)) {
             $value = $matches[2];
             $operator = $matches[1];
         }
