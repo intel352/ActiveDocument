@@ -34,6 +34,7 @@ abstract class Document extends CModel {
      * @var string
      */
     public static $connName = 'conn';
+
     /**
      * Array of connections
      *
@@ -42,18 +43,22 @@ abstract class Document extends CModel {
     public static $connections = array();
     private static $_models = array();
     protected $_related = array();
+
     /**
      * @var \ext\activedocument\MetaData
      */
     private $_md;
+
     /**
      * @var \ext\activedocument\Criteria
      */
     private $_c;
+
     /**
      * @var \ext\activedocument\Container
      */
     protected $_container;
+
     /**
      * @var \ext\activedocument\Object
      */
@@ -61,6 +66,7 @@ abstract class Document extends CModel {
     protected $_new = false;
     protected $_attributes = array();
     protected $_pk;
+
     /**
      * @var \ext\activedocument\Document
      */
@@ -239,7 +245,7 @@ abstract class Document extends CModel {
      * @return mixed the related object(s).
      * @throws Exception if the relation is not specified in {@link relations}.
      */
-    public function getRelated($name, $refresh=false,array $params=array()) {
+    public function getRelated($name, $refresh=false, array $params=array()) {
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
             return $this->_related[$name];
 
@@ -259,7 +265,7 @@ abstract class Document extends CModel {
         }
         unset($this->_related[$name]);
 
-        if($relation instanceof HasManyRelation)
+        if ($relation instanceof HasManyRelation)
             $this->_related[$name] = Document::model($relation->className)->findAll($params);
         else
             $this->_related[$name] = Document::model($relation->className)->find($params);
@@ -441,8 +447,8 @@ abstract class Document extends CModel {
 
     public function rules() {
         return array_merge(parent::rules(), array(
-            array(implode(', ', $this->attributeNames()), 'safe', 'on' => 'search'),
-        ));
+                    array(implode(', ', $this->attributeNames()), 'safe', 'on' => 'search'),
+                ));
     }
 
     /**
@@ -460,8 +466,8 @@ abstract class Document extends CModel {
         }
 
         return new DataProvider(get_class($this), array(
-            'criteria' => $criteria,
-        ));
+                    'criteria' => $criteria,
+                ));
     }
 
     /**
@@ -667,98 +673,76 @@ abstract class Document extends CModel {
             return false;
     }
 
-    public function count($criteria=null, array $params=array()) {
+    public function count($condition=null, array $params=array()) {
         Yii::trace(get_class($this) . '.count()', 'ext.activedocument.' . get_class($this));
+        $criteria = $this->buildCriteria($condition, $params);
         $this->applyScopes($criteria);
-        if (!empty($params))
-            $criteria->mergeWith(array('params' => $params));
         return $this->_container->count($criteria);
     }
 
-    public function find($criteria=null, array $params=array()) {
+    public function find($condition=null, array $params=array()) {
         Yii::trace(get_class($this) . '.find()', 'ext.activedocument.' . get_class($this));
-        $this->beforeFind();
-        $this->applyScopes($criteria);
-
-        /**
-         * @todo throw error if none found
-         */
-        if (!empty($params))
-            $criteria->mergeWith(array('params' => $params));
-        if(empty($criteria->limit))
-            $criteria->limit = 1;
-        $object = array_shift($this->_container->find($criteria));
-
-        return $this->populateDocument($object);
+        return $this->query($this->buildCriteria($condition, $params));
     }
 
     /**
      * @param string $key
      * @return \ext\activedocument\Document
      */
-    public function findByPk($key, $criteria=null, array $params=array()) {
+    public function findByPk($key, $condition=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
-        $this->beforeFind();
-        $this->applyScopes($criteria);
-        $key = $this->jsonEncode($key);
-
-        /**
-         * @todo throw error if none found
-         */
-        if (empty($criteria) && empty($params)) {
-            $object = $this->loadObject($key);
-        }else{
-            $criteria->addInput($this->containerName(), $key);
-            if (!empty($params))
-                $criteria->mergeWith(array('params' => $params));
-            if(empty($criteria->limit))
-                $criteria->limit = 1;
-            $object = array_shift($this->_container->find($criteria));
-        }
-
-        return $this->populateDocument($object);
+        return $this->query($this->buildCriteria($condition, $params), false, array($key));
     }
 
-    public function findAll($criteria=null, array $params=array()) {
+    public function findAll($condition=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.' . get_class($this));
-        $this->beforeFind();
-        $this->applyScopes($criteria);
-
-        /**
-         * @todo throw error if none found
-         */
-        if (!empty($params))
-            $criteria->mergeWith(array('params' => $params));
-        $objects = $this->_container->find($criteria);
-
-        return $this->populateDocuments($objects);
+        return $this->query($this->buildCriteria($condition, $params), true);
     }
 
-    public function findAllByPk(array $keys, $criteria=null, array $params=array()) {
+    public function findAllByPk(array $keys, $condition=null, array $params=array()) {
         Yii::trace(get_class($this) . '.findAllByPk()', 'ext.activedocument.' . get_class($this));
+        return $this->query($this->buildCriteria($condition, $params), true, $keys);
+    }
+
+    protected function query($criteria,$all=false,$keys=array()) {
         $this->beforeFind();
         $this->applyScopes($criteria);
-        if (empty($keys))
-            return array();
-
-        $keys = array_map(array($this, 'jsonEncode'), $keys);
-
-        /**
-         * @todo throw error if none found
-         */
+        
+        if(!empty($keys))
+            $keys = array_map(array($this, 'jsonEncode'), $keys);
+        
         $objects = array();
-        if (empty($criteria) && empty($params))
+        $emptyCriteria = new Criteria;
+        if ($criteria == $emptyCriteria && !empty($keys))
             foreach ($keys as $key)
                 $objects[] = $this->loadObject($key);
         else {
-            foreach ($keys as $key)
-                $criteria->addInput($this->containerName(), $key);
-            if (!empty($params))
-                $criteria->mergeWith(array('params' => $params));
+            if (!$all)
+                $criteria->limit = 1;
+            if(!empty($keys))
+                foreach ($keys as $key)
+                    $criteria->addInput($this->containerName(), $key);
             $objects = $this->_container->find($criteria);
         }
+        
+        if(empty($objects))
+            return $all ? array() : null;
 
-        return $this->populateDocuments($objects);
+        return $all ? $this->populateDocuments($objects) : $this->populateDocument(array_shift($objects));
+    }
+
+    protected function buildCriteria($condition, $params=array()) {
+        if (is_array($condition))
+            $criteria = new Criteria($condition);
+        else if ($condition instanceof Criteria)
+            $criteria = clone $condition;
+        else
+            $criteria = new Criteria;
+
+        if (!empty($params))
+            $criteria->mergeWith(array('params' => $params));
+
+        return $criteria;
     }
 
     /**
