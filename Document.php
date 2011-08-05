@@ -704,13 +704,13 @@ abstract class Document extends CModel {
         return $this->query($this->buildCriteria($condition, $params), true, $keys);
     }
 
-    protected function query($criteria,$all=false,$keys=array()) {
+    protected function query($criteria, $all=false, $keys=array()) {
         $this->beforeFind();
         $this->applyScopes($criteria);
-        
-        if(!empty($keys))
+
+        if (!empty($keys))
             $keys = array_map(array($this, 'jsonEncode'), $keys);
-        
+
         $objects = array();
         $emptyCriteria = new Criteria;
         if ($criteria == $emptyCriteria && !empty($keys))
@@ -719,13 +719,13 @@ abstract class Document extends CModel {
         else {
             if (!$all)
                 $criteria->limit = 1;
-            if(!empty($keys))
+            if (!empty($keys))
                 foreach ($keys as $key)
                     $criteria->addInput($this->containerName(), $key);
             $objects = $this->_container->find($criteria);
         }
-        
-        if(empty($objects))
+
+        if (empty($objects))
             return $all ? array() : null;
 
         return $all ? $this->populateDocuments($objects) : $this->populateDocument(array_shift($objects));

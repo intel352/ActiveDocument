@@ -21,9 +21,9 @@ abstract class Adapter extends CComponent {
     abstract protected function loadStorageInstance(array $attributes=null);
 
     abstract protected function loadContainer($name);
-    
+
     abstract public function count(Criteria $criteria);
-    
+
     abstract public function find(Criteria $criteria);
 
     public function __construct(Connection $conn, array $attributes=null) {
@@ -84,7 +84,7 @@ abstract class Adapter extends CComponent {
             if ($this->_connection->containerPrefix !== null && strpos($name, '{{') !== false)
                 $realName = preg_replace('/\{\{(.*?)\}\}/', $this->_connection->containerPrefix . '$1', $name);
             else
-                $realName=$name;
+                $realName = $name;
 
             // temporarily disable query caching
             /* if($this->_connection->queryCachingDuration>0)
@@ -103,8 +103,8 @@ abstract class Adapter extends CComponent {
             }
             else
                 $container = $this->loadContainer($realName);
-            
-            if(!empty($config))
+
+            if (!empty($config))
                 $container->setConfig($config);
 
             /* if(isset($qcDuration))  // re-enable query caching
