@@ -42,7 +42,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     public function count(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
-        
+
         $mr->map('function(){return [1];}');
         $mr->reduce('Riak.reduceSum');
         $result = $mr->run();
@@ -53,21 +53,21 @@ class Adapter extends \ext\activedocument\Adapter {
     public function find(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
         $mr->map('function(value){return [value];}');
-        
+
         /**
          * Apply default sorting
          */
         if (!empty($criteria->order)) {
             $orderBy = explode(',', $criteria->order);
-            foreach($orderBy as $order) {
-                preg_match('/(?:(\w+)\.)?(\w+)(?:\s+(ASC|DESC))?/',trim($order),$matches);
+            foreach ($orderBy as $order) {
+                preg_match('/(?:(\w+)\.)?(\w+)(?:\s+(ASC|DESC))?/', trim($order), $matches);
                 $field = $matches[2];
-                $desc = (isset($matches[3]) && strcasecmp($matches[3], 'desc')===0);
-                $mr->reduce('Riak.reduceSort',array('arg'=>'
+                $desc = (isset($matches[3]) && strcasecmp($matches[3], 'desc') === 0);
+                $mr->reduce('Riak.reduceSort', array('arg' => '
                 function(a,b){
-                    var field = "'.$field.'";
-                    var str1 = Riak.mapValuesJson('.($desc?'b':'a').')[0];
-                    var str2 = Riak.mapValuesJson('.($desc?'a':'b').')[0];
+                    var field = "' . $field . '";
+                    var str1 = Riak.mapValuesJson(' . ($desc ? 'b' : 'a') . ')[0];
+                    var str2 = Riak.mapValuesJson(' . ($desc ? 'a' : 'b') . ')[0];
                         
                     if (((typeof str1 === "undefined" || str1 === null) ? undefined :
                     str1[field]) < ((typeof str2 === "undefined" || str2 === null) ? undefined :
@@ -85,63 +85,74 @@ class Adapter extends \ext\activedocument\Adapter {
                 }'));
             }
         }
+
         if ($criteria->limit > 0) {
             $offset = $criteria->offset > 0 ? $criteria->offset : 0;
             $mr->reduce('Riak.reduceSlice', array('arg' => array($offset, $offset + $criteria->limit)));
         }
-        $results = $mr->run();
+        
+        /**
+         * Filter not found
+         */
+        $results = array_filter($mr->run(), function($r) {
+                    return!array_key_exists('not_found', $r);
+                });
+
         $objects = array();
         if (!empty($results))
-            foreach ($results as $result)
-                $objects[] = $this->populateObject($result);
+            $objects = array_map(array($this, 'populateObject'), $results);
         return $objects;
     }
-    
+
     protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
         $mr = $this->getMapReduce(true);
 
-        $mode = null;        
+        $mode = null;
         if (!empty($criteria->inputs))
             foreach ($criteria->inputs as $input)
-                if (empty($input['key']) && (!$mode || $mode=='bucket')) {
-                    if(!$mode)
+                if (empty($input['key']) && (!$mode || $mode == 'bucket')) {
+                    if (!$mode)
                         $mode = 'bucket';
                     $mr->addBucket($input['container']);
-                }elseif (!$mode || $mode=='input') {
-                    if(!$mode)
+                }elseif (!$mode || $mode == 'input') {
+                    if (!$mode)
                         $mode = 'input';
                     $mr->addBucketKeyData($input['container'], $input['key'], $input['data']);
                 }
-        
-        if (!empty($criteria->container) && (!$mode || $mode=='bucket'))
+
+        if (!empty($criteria->container) && (!$mode || $mode == 'bucket'))
             $mr->addBucket($criteria->container);
-        
+
         /**
          * Filter non-existent results
          */
-        /*$mr->reduce('
-            function(values){
-                return Riak.filterNotFound(values);
-            }
-            ');*/
-                
+        /* $mr->map('
+          function(value){
+          if(!value["not_found"]) {
+          return [[value.bucket,value.key]];
+          } else {
+          return [];
+          }
+          }
+          '); */
+
         if (!empty($criteria->phases))
             foreach ($criteria->phases as $phase)
                 $mr->addPhase($phase['phase'], $phase['function'], $phase['args']);
-        
-        if(!empty($criteria->search))
-            foreach($criteria->search as $column) {
+
+        if (!empty($criteria->search))
+            foreach ($criteria->search as $column) {
                 /**
                  * @todo preg_quote may not be appropriate for js regex
                  * @todo lowercasing the strings may not be a good idea...
                  */
-                $column['keyword'] = !$column['escape'] ?: preg_quote($column['keyword'],'/');
+                $column['keyword'] = !$column['escape'] ? : preg_quote($column['keyword'], '/');
                 $mr->map('
                 function(value){
-                    if(!value.not_found) {
+                    if(!value["not_found"]) {
                         var object = Riak.mapValuesJson(value)[0];
-                        var val = object["'.$column['column'].'"].toLowerCase();
-                        if('.($column['like']?'':'!').'(val.match(/'.strtolower($column['keyword']).'/))) {
+                        var val = object["' . $column['column'] . '"].toLowerCase();
+                        if(' . ($column['like'] ? '' : '!') . '(val.match(/' . strtolower($column['keyword']) . '/))) {
                             return [[value.bucket,value.key]];
                         }
                     }
@@ -149,14 +160,14 @@ class Adapter extends \ext\activedocument\Adapter {
                 }
                     ');
             }
-        
-        if(!empty($criteria->columns))
-            foreach($criteria->columns as $column) {
+
+        if (!empty($criteria->columns))
+            foreach ($criteria->columns as $column) {
                 $mr->map('
                 function(value){
                     if(!value.not_found) {
                         var object = Riak.mapValuesJson(value)[0];
-                        if(object["'.$column['column'].'"] '.$column['operator'].' "'.$column['value'].'") {
+                        if(object["' . $column['column'] . '"] ' . $column['operator'] . ' "' . $column['value'] . '") {
                             return [[value.bucket,value.key]];
                         }
                     }
@@ -164,19 +175,19 @@ class Adapter extends \ext\activedocument\Adapter {
                 }
                     ');
             }
-        
+
         /**
          * @todo Implement column conditions
          */
-        if(!empty($criteria->array))
+        if (!empty($criteria->array))
             ;
-        
+
         /**
          * @todo Implement "between" conditions
          */
-        if(!empty($criteria->between))
+        if (!empty($criteria->between))
             ;
-        
+
         return $mr;
     }
 
