@@ -414,18 +414,26 @@ abstract class Document extends CModel {
     protected function ensurePk() {
         if ($this->_pk === null)
             if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null)
-                $this->_pk = $this->jsonEncode($this->getPrimaryKey());
+                $this->_pk = $this->stringify($this->getPrimaryKey());
             elseif ($this->_object->getKey() !== null)
                 $this->_pk = $this->_object->getKey();
     }
 
-    protected function jsonEncode($var) {
+    /**
+     * Takes mixed variable types
+     * Returns objects/arrays as json
+     * Casts any other type to string
+     *
+     * @param mixed $var
+     * @return string
+     */
+    protected function stringify($var) {
         /**
-         * Return var if already valid JSON
+         * Encode var if it is array or object
          */
-        if (is_null($var) || is_bool($var) || (is_numeric($var) && !is_string($var)) || (is_string($var) && \CJSON::decode($var) !== null))
-            return $var;
-        return \CJSON::encode($var);
+        if (is_array($var) || is_object($var))
+            return \CJSON::encode($var);
+        return (string) $var;
     }
 
     /* public function cache($duration, $dependency=null, $queryCount=1) {
