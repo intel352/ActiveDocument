@@ -717,7 +717,7 @@ abstract class Document extends CModel {
         $this->applyScopes($criteria);
 
         if (!empty($keys))
-            $keys = array_map(array($this, 'jsonEncode'), $keys);
+            $keys = array_map(array($this, 'stringify'), $keys);
 
         $objects = array();
         $emptyCriteria = new Criteria;
