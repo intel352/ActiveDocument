@@ -455,18 +455,21 @@ abstract class Document extends CModel {
 
     public function rules() {
         return array_merge(parent::rules(), array(
-                    array(implode(', ', $this->attributeNames()), 'safe', 'on' => 'search'),
-                ));
+                array(implode(', ', $this->attributeNames()), 'safe', 'on' => 'search'),
+            ));
     }
 
     /**
      * Retrieves a list of models based on the current search/filter conditions.
+     * 
+     * @param array $attributes Array of attributes to limit searching to
      * @return \ext\activedocument\DataProvider the data provider that can return the models based on the search/filter conditions.
      */
-    public function search() {
+    public function search(array $attributes=array()) {
         $criteria = new Criteria;
 
-        foreach ($this->getMetaData()->getAttributes() as $name => $attribute) {
+        $attributes = !empty($attributes)?$attributes:$this->getMetaData()->getAttributes();
+        foreach ($attributes as $name => $attribute) {
             if ($attribute->type === 'string')
                 $criteria->compare($name, $this->$name, true);
             else
@@ -474,8 +477,8 @@ abstract class Document extends CModel {
         }
 
         return new DataProvider(get_class($this), array(
-                    'criteria' => $criteria,
-                ));
+                'criteria' => $criteria,
+            ));
     }
 
     /**
