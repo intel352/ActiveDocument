@@ -87,12 +87,11 @@ class DataProvider extends CActiveDataProvider {
         if (($pagination = $this->getPagination()) !== false) {
             $pagination->setItemCount($this->getTotalItemCount());
             $pagination->applyLimit($criteria);
-            $criteria instanceof Criteria;
             /**
              * Ensure pagination params don't add up to greater than item count
              */
             if(($criteria->offset+$criteria->limit)>$pagination->getItemCount())
-                $criteria->limit = ($criteria->offset+$criteria->limit)-$pagination->getItemCount();
+                $criteria->limit = $pagination->getItemCount()-$criteria->offset;
         }
 
         $baseCriteria = $this->model->getCriteria(false);
