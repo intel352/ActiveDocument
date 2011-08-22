@@ -10,6 +10,7 @@ abstract class Container extends CComponent {
      * @var \ext\activedocument\Adapter
      */
     protected $_adapter;
+
     /**
      * @var \ext\activedocument\Connection
      */
@@ -22,22 +23,22 @@ abstract class Container extends CComponent {
     abstract protected function loadContainerInstance();
 
     abstract protected function loadProperties();
-    
+
     abstract public function getKeys();
-    
+
     abstract public function delete();
-    
+
     abstract public function deleteKeys(array $keys);
 
     abstract public function getObject($key=null);
-    
+
     public function __construct(Adapter $adapter, $name) {
         $this->_adapter = $adapter;
         $this->_connection = $adapter->getConnection();
         $this->_name = $name;
         $this->initContainer();
     }
-    
+
     protected function initContainer() {
         $this->_containerInstance = $this->loadContainerInstance();
         $this->_properties = $this->loadProperties();
@@ -56,7 +57,7 @@ abstract class Container extends CComponent {
     public function getAdapter() {
         return $this->_adapter;
     }
-    
+
     public function getContainerInstance() {
         return $this->_containerInstance;
     }
@@ -70,7 +71,7 @@ abstract class Container extends CComponent {
     }
 
     public function getProperty($key) {
-        if(!array_key_exists($key, $this->_properties))
+        if (!array_key_exists($key, $this->_properties))
             return null;
         return $this->_properties[$key];
     }
@@ -84,25 +85,25 @@ abstract class Container extends CComponent {
         foreach ($this->_properties as $k => $v)
             $this->setProperty($k, $v);
     }
-    
+
     public function setConfig(array $config) {
         $this->setProperties($config);
     }
-    
+
     public function count(Criteria $criteria=null) {
-        if($criteria===null)
+        if ($criteria === null)
             $criteria = new Criteria;
         $criteria->container = $this->_name;
         return $this->_adapter->count($criteria);
     }
-    
+
     public function find(Criteria $criteria=null) {
-        if($criteria===null)
+        if ($criteria === null)
             $criteria = new Criteria;
         $criteria->container = $this->_name;
         return $this->_adapter->find($criteria);
     }
-    
+
     /**
      * @param string $key
      * @param mixed $data
