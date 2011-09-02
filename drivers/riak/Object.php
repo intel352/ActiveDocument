@@ -10,7 +10,7 @@ class Object extends \ext\activedocument\Object {
     protected $_objectInstance;
 
     protected function loadObjectInstance($new=true) {
-        if($this->getKey()!==null && !$new)
+        if ($this->getKey() !== null && !$new)
             return $this->_container->getContainerInstance()->get($this->getKey());
         return $this->_container->getContainerInstance()->newObject($this->getKey());
     }
@@ -51,8 +51,9 @@ class Object extends \ext\activedocument\Object {
     protected function getObjectData() {
         return $this->_objectInstance->getData();
     }
-    
+
     protected function setObjectData($data) {
         $this->_objectInstance->setData($data);
     }
+
 }

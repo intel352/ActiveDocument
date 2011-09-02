@@ -10,18 +10,22 @@ abstract class Object extends \CComponent {
      * @var \ext\activedocument\Adapter
      */
     protected $_adapter;
+
     /**
      * @var \ext\activedocument\Connection
      */
     protected $_connection;
+
     /**
      * @var \ext\activedocument\Container
      */
     protected $_container;
+
     /**
      * @var string
      */
     private $_key;
+
     /**
      * @var mixed
      */
@@ -35,9 +39,9 @@ abstract class Object extends \CComponent {
     abstract public function delete();
 
     abstract public function reload();
-    
+
     abstract protected function getObjectData();
-    
+
     abstract protected function setObjectData($data);
 
     public function __construct(Container $container, $key=null, $data=null, $new=true) {
@@ -51,9 +55,9 @@ abstract class Object extends \CComponent {
          */
         $this->syncData($data);
     }
-    
+
     protected function syncData($data) {
-        if($data!==null)
+        if ($data !== null)
             $this->setObjectData($data);
         $this->data = $this->getObjectData();
     }

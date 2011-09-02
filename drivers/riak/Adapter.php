@@ -52,6 +52,23 @@ class Adapter extends \ext\activedocument\Adapter {
 
     public function find(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
+        /**
+         * If no phases are to be run, skip m/r and perform async object fetch
+         * @todo With a small data subset, performance is roughly equal to m/r, need to
+         * test large set of data
+         */
+        if(empty($mr->phases))
+            if($mr->inputMode=='bucket') {
+                $container = $this->getContainer($mr->inputs);
+                return $container->getObjects($container->getKeys());
+            } else {
+                return $container->getObjects(array_map(function($input)use(&$container){
+                        if(empty($container))
+                            $container = $this->getContainer($input['container']);
+                        return $input['key'];
+                    },$criteria->inputs));
+            }
+        
         $mr->map('function(value){return [value];}');
 
         /**
@@ -95,8 +112,8 @@ class Adapter extends \ext\activedocument\Adapter {
          * Filter not found
          */
         $results = array_filter($mr->run(), function($r) {
-                    return!array_key_exists('not_found', $r);
-                });
+            return!array_key_exists('not_found', $r);
+        });
 
         $objects = array();
         if (!empty($results))
