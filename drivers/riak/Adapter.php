@@ -56,8 +56,10 @@ class Adapter extends \ext\activedocument\Adapter {
          * If no phases are to be run, skip m/r and perform async object fetch
          * @todo With a small data subset, performance is roughly equal to m/r, need to
          * test large set of data
+         * 
+         * @todo Disabling, as this doesn't account for sorting & pagination
          */
-        if(empty($mr->phases))
+        /*if(empty($mr->phases))
             if($mr->inputMode=='bucket') {
                 $container = $this->getContainer($mr->inputs);
                 return $container->getObjects($container->getKeys());
@@ -68,7 +70,7 @@ class Adapter extends \ext\activedocument\Adapter {
                         return $input['key'];
                     },$criteria->inputs));
             }
-        
+        */
         $mr->map('function(value){return [value];}');
 
         /**
