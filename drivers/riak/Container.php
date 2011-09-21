@@ -74,6 +74,7 @@ class Container extends \ext\activedocument\Container {
      * @return array \ext\activedocument\drivers\riak\Object
      */
     public function getObjects(array $keys) {
+	if(empty($keys)) return array();
         $containerInstance = $this->_containerInstance;
         $objectInstances = array_map(function($key)use(&$containerInstance) {
                     return $containerInstance->newObject($key);
