@@ -11,7 +11,7 @@ Yii::import('ext.activedocument.Relation', true);
 
 /**
  * Document
- * 
+ *
  * @todo Relations are almost in place, need mechanism for determining
  * how keys will be managed
  *
@@ -103,7 +103,7 @@ abstract class Document extends CModel {
     }
 
     public function init() {
-        
+
     }
 
     public function getOwner() {
@@ -461,7 +461,7 @@ abstract class Document extends CModel {
 
     /**
      * Retrieves a list of models based on the current search/filter conditions.
-     * 
+     *
      * @param array $attributes Array of attribute names to limit searching to
      * @return \ext\activedocument\DataProvider the data provider that can return the models based on the search/filter conditions.
      */
@@ -540,33 +540,33 @@ abstract class Document extends CModel {
             return false;
     }
 
-    public function onBeforeSave($event) {
+    public function onBeforeSave(Event $event) {
         $this->raiseEvent('onBeforeSave', $event);
     }
 
-    public function onAfterSave($event) {
+    public function onAfterSave(\CEvent $event) {
         $this->raiseEvent('onAfterSave', $event);
     }
 
-    public function onBeforeDelete($event) {
+    public function onBeforeDelete(Event $event) {
         $this->raiseEvent('onBeforeDelete', $event);
     }
 
-    public function onAfterDelete($event) {
+    public function onAfterDelete(\CEvent $event) {
         $this->raiseEvent('onAfterDelete', $event);
     }
 
-    public function onBeforeFind($event) {
+    public function onBeforeFind(Event $event) {
         $this->raiseEvent('onBeforeFind', $event);
     }
 
-    public function onAfterFind($event) {
+    public function onAfterFind(\CEvent $event) {
         $this->raiseEvent('onAfterFind', $event);
     }
 
     protected function beforeSave() {
         if ($this->hasEventHandler('onBeforeSave')) {
-            $event = new CModelEvent($this);
+            $event = new Event($this);
             $this->onBeforeSave($event);
             return $event->isValid;
         }
@@ -576,7 +576,7 @@ abstract class Document extends CModel {
 
     protected function afterSave() {
         if ($this->hasEventHandler('onAfterSave'))
-            $this->onAfterSave(new CEvent($this));
+            $this->onAfterSave(new \CEvent($this));
     }
 
     protected function beforeDelete() {
@@ -591,7 +591,7 @@ abstract class Document extends CModel {
 
     protected function afterDelete() {
         if ($this->hasEventHandler('onAfterDelete'))
-            $this->onAfterDelete(new CEvent($this));
+            $this->onAfterDelete(new \CEvent($this));
     }
 
     protected function beforeFind() {
@@ -605,7 +605,7 @@ abstract class Document extends CModel {
 
     protected function afterFind() {
         if ($this->hasEventHandler('onAfterFind'))
-            $this->onAfterFind(new CEvent($this));
+            $this->onAfterFind(new \CEvent($this));
     }
 
     public function beforeFindInternal() {
