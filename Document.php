@@ -14,8 +14,8 @@ Yii::import('ext.activedocument.Relation', true);
  * @todo Relations are almost in place, need mechanism for determining
  * how keys will be managed
  *
- * @version $Version: 1.0.dev.52 $
- * @author $Author: intel352 $
+ * @version $Version$
+ * @author $Author$
  */
 abstract class Document extends CModel {
     const BELONGS_TO='\ext\activedocument\BelongsToRelation';
@@ -724,6 +724,9 @@ abstract class Document extends CModel {
         $objects = array();
         $emptyCriteria = new Criteria;
         if ($criteria == $emptyCriteria && !empty($keys))
+            /**
+             * @todo Need to implement multi-object async loading to speed up this process 
+             */
             foreach ($keys as $key)
                 $objects[] = $this->loadObject($key);
         else {
