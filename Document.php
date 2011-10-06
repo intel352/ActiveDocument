@@ -4,8 +4,7 @@ namespace ext\activedocument;
 
 use \Yii,
     \CModel,
-    \CEvent,
-    \CModelEvent;
+    \CEvent;
 
 Yii::import('ext.activedocument.Relation', true);
 
@@ -15,8 +14,8 @@ Yii::import('ext.activedocument.Relation', true);
  * @todo Relations are almost in place, need mechanism for determining
  * how keys will be managed
  *
- * @version $Version$
- * @author $Author$
+ * @version $Version: 1.0.dev.52 $
+ * @author $Author: intel352 $
  */
 abstract class Document extends CModel {
     const BELONGS_TO='\ext\activedocument\BelongsToRelation';
@@ -581,7 +580,7 @@ abstract class Document extends CModel {
 
     protected function beforeDelete() {
         if ($this->hasEventHandler('onBeforeDelete')) {
-            $event = new CModelEvent($this);
+            $event = new Event($this);
             $this->onBeforeDelete($event);
             return $event->isValid;
         }
@@ -596,7 +595,7 @@ abstract class Document extends CModel {
 
     protected function beforeFind() {
         if ($this->hasEventHandler('onBeforeFind')) {
-            $event = new CModelEvent($this);
+            $event = new Event($this);
             // for backward compatibility
             $event->criteria = func_num_args() > 0 ? func_get_arg(0) : null;
             $this->onBeforeFind($event);
