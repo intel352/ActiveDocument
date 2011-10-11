@@ -34,7 +34,7 @@ class Container extends \ext\activedocument\Container {
     /**
      * Overriding default setProperties method, as Riiak supports massively saving properties
      *
-     * @param array $properties 
+     * @param array $properties
      */
     public function setProperties(array $properties) {
         $this->_containerInstance->setProperties($properties);
@@ -46,14 +46,16 @@ class Container extends \ext\activedocument\Container {
     }
 
     /**
-     * @return array 
+     * @return array
      */
     public function getKeys() {
         return $this->_containerInstance->getKeys();
     }
 
     public function deleteKeys(array $keys) {
-        array_map(function(&$object){$object->delete();},$this->getObjects($keys));
+        array_map(function(&$object) {
+                    $object->delete();
+                }, $this->getObjects($keys));
         return true;
     }
 
@@ -63,18 +65,19 @@ class Container extends \ext\activedocument\Container {
      * @param bool $new
      * @return \ext\activedocument\drivers\riak\Object
      */
-    public function getObject($key=null, $data=null, $new=false) {
+    public function getObject($key = null, $data = null, $new = false) {
         return new Object($this, $key, $data, $new);
     }
 
     /**
      * @todo Move bulk of logic to Adapter, to allow fetching of objects across mult containers
-     * 
+     *
      * @param array $keys
      * @return array \ext\activedocument\drivers\riak\Object
      */
     public function getObjects(array $keys) {
-	if(empty($keys)) return array();
+        if (empty($keys))
+            return array();
         $containerInstance = $this->_containerInstance;
         $objectInstances = array_map(function($key)use(&$containerInstance) {
                     return $containerInstance->newObject($key);
