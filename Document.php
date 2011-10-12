@@ -171,6 +171,11 @@ abstract class Document extends CModel {
     }
 
     public function __get($name) {
+        
+        if ($name == "employees") {
+            echo "<pre>"; print_r($this->getRelated($name)); die;
+        }
+        
         if (isset($this->_attributes[$name]))
             return $this->_attributes[$name];
         else if (isset($this->getMetaData()->attributes[$name]))
@@ -249,6 +254,7 @@ abstract class Document extends CModel {
             return $this->_related[$name];
 
         $md = $this->getMetaData();
+        echo "<pre>"; print_r($md->getClassMeta()); die;
         if (!isset($md->relations[$name]))
             throw new Exception(Yii::t('yii', '{class} does not have relation "{name}".', array('{class}' => get_class($this), '{name}' => $name)));
 
@@ -262,10 +268,26 @@ abstract class Document extends CModel {
             if ($exists)
                 $save = $this->_related[$name];
         }
-        unset($this->_related[$name]);
+        //unset($this->_related[$name]);
 
-        if ($relation instanceof HasManyRelation)
-            $this->_related[$name] = Document::model($relation->className)->findAll($params);
+        if ($relation instanceof HasManyRelation) {
+            /*
+             * I have used hard coded employeeIds object to get all employees related to one department
+            */
+            
+            // Get department data 
+            $data = json_decode($this->getObject()->data);
+            $this->_related[$name] = Document::model($relation->className)->findAllByPk(explode(",",$data->employeeIds));
+            
+            /*
+             * @todo Alternate implementation
+             * 
+             * $this->_related[$name] = Document::model($relation->className)->find("departmentId = :departmentId",array(":departmentID"=>$this->getObject()->key)));
+             * 
+             */
+            
+            
+        }
         else
             $this->_related[$name] = Document::model($relation->className)->find($params);
 
@@ -723,7 +745,7 @@ abstract class Document extends CModel {
 
         $objects = array();
         $emptyCriteria = new Criteria;
-        if ($criteria == $emptyCriteria && !empty($keys))
+        if ($criteria == $emptyCriteria && !empty($keys)) 
             /**
              * @todo Need to implement multi-object async loading to speed up this process 
              */
