@@ -171,11 +171,6 @@ abstract class Document extends CModel {
     }
 
     public function __get($name) {
-        
-        if ($name == "employees") {
-            echo "<pre>"; print_r($this->getRelated($name)); die;
-        }
-        
         if (isset($this->_attributes[$name]))
             return $this->_attributes[$name];
         else if (isset($this->getMetaData()->attributes[$name]))
@@ -252,14 +247,15 @@ abstract class Document extends CModel {
     public function getRelated($name, $refresh=false, array $params=array()) {
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
             return $this->_related[$name];
-
+        
         $md = $this->getMetaData();
-        echo "<pre>"; print_r($md->getClassMeta()); die;
+        
         if (!isset($md->relations[$name]))
             throw new Exception(Yii::t('yii', '{class} does not have relation "{name}".', array('{class}' => get_class($this), '{name}' => $name)));
 
         Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
         $relation = $md->relations[$name];
+        
         if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation))
             return $relation instanceof HasOneRelation ? null : array();
 
@@ -268,29 +264,14 @@ abstract class Document extends CModel {
             if ($exists)
                 $save = $this->_related[$name];
         }
-        //unset($this->_related[$name]);
+        unset($this->_related[$name]);
 
-        if ($relation instanceof HasManyRelation) {
-            /*
-             * I have used hard coded employeeIds object to get all employees related to one department
-            */
-            
-            // Get department data 
-            $data = json_decode($this->getObject()->data);
-            $this->_related[$name] = Document::model($relation->className)->findAllByPk(explode(",",$data->employeeIds));
-            
-            /*
-             * @todo Alternate implementation
-             * 
-             * $this->_related[$name] = Document::model($relation->className)->find("departmentId = :departmentId",array(":departmentID"=>$this->getObject()->key)));
-             * 
-             */
-            
-            
+        $data = json_decode($this->getObject()->data);
+        
+        if (isset($data->$name)) {          
+            $this->_related[$name] = Document::model($relation->className)->findAllByPk($data->$name);
         }
-        else
-            $this->_related[$name] = Document::model($relation->className)->find($params);
-
+        
         if (!isset($this->_related[$name])) {
             if ($relation instanceof HasManyRelation)
                 $this->_related[$name] = array();
