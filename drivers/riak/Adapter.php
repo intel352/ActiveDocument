@@ -158,6 +158,23 @@ class Adapter extends \ext\activedocument\Adapter {
         if (!empty($criteria->phases))
             foreach ($criteria->phases as $phase)
                 $mr->addPhase($phase['phase'], $phase['function'], $phase['args']);
+        
+        /*
+        if (!empty($criteria->params)) {
+            foreach ($criteria->params as key=>value) {
+                $mr->map('
+                function(value){
+                    if(!value["not_found"]) {
+                        var object = Riak.mapValuesJson(value)[0];
+                        if(' . $key . '=='.$value.'/))) {
+                            return [[value.bucket,value.key]];
+                        }
+                    }
+                    return [];
+                }
+                    ');
+        }
+        */
 
         if (!empty($criteria->search))
             foreach ($criteria->search as $column) {

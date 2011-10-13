@@ -247,13 +247,15 @@ abstract class Document extends CModel {
     public function getRelated($name, $refresh=false, array $params=array()) {
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
             return $this->_related[$name];
-
+        
         $md = $this->getMetaData();
+        
         if (!isset($md->relations[$name]))
             throw new Exception(Yii::t('yii', '{class} does not have relation "{name}".', array('{class}' => get_class($this), '{name}' => $name)));
 
         Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
         $relation = $md->relations[$name];
+        
         if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation))
             return $relation instanceof HasOneRelation ? null : array();
 
@@ -264,11 +266,12 @@ abstract class Document extends CModel {
         }
         unset($this->_related[$name]);
 
-        if ($relation instanceof HasManyRelation)
-            $this->_related[$name] = Document::model($relation->className)->findAll($params);
-        else
-            $this->_related[$name] = Document::model($relation->className)->find($params);
-
+        $data = json_decode($this->getObject()->data);
+        
+        if (isset($data->$name)) {          
+            $this->_related[$name] = Document::model($relation->className)->findAllByPk($data->$name);
+        }
+        
         if (!isset($this->_related[$name])) {
             if ($relation instanceof HasManyRelation)
                 $this->_related[$name] = array();
@@ -723,7 +726,7 @@ abstract class Document extends CModel {
 
         $objects = array();
         $emptyCriteria = new Criteria;
-        if ($criteria == $emptyCriteria && !empty($keys))
+        if ($criteria == $emptyCriteria && !empty($keys)) 
             /**
              * @todo Need to implement getObjects to speed up this process
              * $objects = $this->getContainer()->getObjects($keys);
