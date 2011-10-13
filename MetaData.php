@@ -8,7 +8,7 @@ use \Yii,
 /**
  * @todo Build validation rules based on types, defaults, etc. Need support for custom type validation as well
  * @todo Provide model upgrade support, by checking class version against object version, using version_compare()
- * 
+ *
  * For adding validator rules:
  * $this->getModel()->getValidatorList()->add(CValidator::createValidator($validatorName,$this,$attributes,$otherParams));
  */
@@ -72,14 +72,14 @@ class MetaData extends CComponent {
         if ($this->_classMeta !== null)
             return $this->_classMeta;
         $reflectionClass = $this->getReflectionClass();
-        
+
         $parentClass = $reflectionClass->getParentClass();
         $properties = $relations = array();
         if($parentClass->getNamespaceName()!='ext\activedocument') {
             $properties = Document::model($parentClass->getName())->getMetaData()->getProperties();
             $relations = Document::model($parentClass->getName())->getMetaData()->getRelations();
         }
-        
+
         $this->_classMeta = new \ArrayObject(array(
                     'properties' => new \ArrayObject($properties, \ArrayObject::ARRAY_AS_PROPS),
                     'relations' => new \ArrayObject($relations, \ArrayObject::ARRAY_AS_PROPS),
@@ -121,7 +121,7 @@ class MetaData extends CComponent {
 
     /**
      * @param bool $asArray
-     * @return array|\ArrayObject 
+     * @return array|\ArrayObject
      */
     public function getProperties($asArray=true) {
         if ($asArray)
@@ -194,7 +194,7 @@ class MetaData extends CComponent {
 
     /**
      * @param bool $asArray
-     * @return array|\ArrayObject 
+     * @return array|\ArrayObject
      */
     public function getRelations($asArray=true) {
         if ($asArray)
@@ -215,13 +215,18 @@ class MetaData extends CComponent {
      */
     public function addRelation($name, $config) {
         /**
-         * @todo Quick fix for numeric relatios (nested)
+         * @todo Quick fix for numeric relations (nested)
          */
         if(is_int($config[0]))
             return;
-        if (isset($config[0], $config[1]))
+        if (isset($config[0], $config[1])) {
             $this->getClassMeta()->relations[$name] = new $config[0]($name, $config[1], array_slice($config, 2));
-        else
+            /**
+             * Remove property collisions, which occur from a relation being listed as a property in the model's PHPDOC
+             */
+            if(isset($this->getClassMeta()->properties[$name]))
+                unset($this->getClassMeta()->properties[$name]);
+        } else
             throw new Exception(Yii::t('yii', 'Active document "{class}" has an invalid configuration for relation "{relation}". It must specify the relation type and the related active record class.', array('{class}' => get_class($this->_model), '{relation}' => $name)));
     }
 
