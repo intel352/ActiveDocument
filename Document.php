@@ -43,7 +43,6 @@ abstract class Document extends CModel {
     public static $connections = array();
     private static $_models = array();
     protected $_related = array();
-    protected $_updatedRelations = array();
 
     /**
      * @var \ext\activedocument\MetaData
@@ -271,7 +270,7 @@ abstract class Document extends CModel {
         $data = $this->getObject()->data;
         if (isset($data[$name])) {
             if ($relation instanceof HasManyRelation)
-                $this->_related[$name] = new \ArrayObject(Document::model($relation->className)->findAllByPk($data[$name], null, $params), \ArrayObject::ARRAY_AS_PROPS);
+                $this->_related[$name] = Document::model($relation->className)->findAllByPk($data[$name], null, $params);
             /* else if ($relation instanceof StatRelation)
               $this->_related[$name] = $relation->defaultValue; */
             else
@@ -280,7 +279,7 @@ abstract class Document extends CModel {
 
         if (!isset($this->_related[$name])) {
             if ($relation instanceof HasManyRelation)
-                $this->_related[$name] = new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS);
+                $this->_related[$name] = array();
             else if ($relation instanceof StatRelation)
                 $this->_related[$name] = $relation->defaultValue;
             else
@@ -550,20 +549,16 @@ abstract class Document extends CModel {
      *
      * @param string|array $data attribute[s] and/or relation[s].
      * @param boolean $clearErrors whether to call {@link CModel::clearErrors} before performing validation.
-     * @param \ext\activedocument\Document $owner for internal needs.
      * @return boolean whether the validation is successful without any error.
      */
-    public function validate($data = null, $clearErrors = true, Document $owner = null) {
-        if ($owner === null)
-            $owner = $this->getOwner()? : $this;
-
+    public function validate($data = null, $clearErrors = true) {
         if ($data === null) {
             $attributes = null;
             $newData = array();
         } else {
             if (is_string($data))
                 $data = array($data);
-            $attributeNames = $owner->attributeNames();
+            $attributeNames = $this->attributeNames();
             $attributes = array_intersect($data, $attributeNames);
 
             if ($attributes === array())
@@ -572,30 +567,24 @@ abstract class Document extends CModel {
             $newData = array_diff($data, $attributeNames);
         }
 
-        $valid = $owner->internalValidate($attributes, $clearErrors);
+        $valid = $this->internalValidate($attributes, $clearErrors);
 
         foreach ($newData as $name => $data) {
             if (!is_array($data))
                 $name = $data;
 
-            if (!$owner->hasRelated($name))
+            if (!$this->hasRelated($name))
                 continue;
 
-            $related = $owner->getRelated($name);
+            $related = $this->getRelated($name);
 
             if (is_array($related)) {
                 foreach ($related as $model) {
-                    if (is_array($data))
-                        $valid = $this->validate($data, $clearErrors, $model) && $valid;
-                    else
-                        $valid = $model->validate(null, $clearErrors) && $valid;
+                    $valid = $model->validate(is_array($data)?$data:null, $clearErrors) && $valid;
                 }
             }
             else {
-                if (is_array($data))
-                    $valid = $this->validate($data, $clearErrors, $related) && $valid;
-                else
-                    $valid = $related->validate(null, $clearErrors) && $valid;
+                $valid = $related->validate(is_array($data)?$data:null, $clearErrors) && $valid;
             }
         }
 
@@ -618,13 +607,9 @@ abstract class Document extends CModel {
 
     /**
      * @param string|array $data attribute[s] and/or relation[s].
-     * @param \ext\activedocument\Document $owner for internal needs.
      * @return boolean whether the saving succeeds.
      */
-    protected function internalSave($data = null, Document $owner = null) {
-        if ($owner === null)
-            $owner = $this->getOwner()? : $this;
-
+    protected function internalSave($data = null) {
         try {
             if ($data === null) {
                 $attributes = null;
@@ -632,7 +617,7 @@ abstract class Document extends CModel {
             } else {
                 if (is_string($data))
                     $data = array($data);
-                $attributeNames = $owner->attributeNames();
+                $attributeNames = $this->attributeNames();
                 $attributes = array_intersect($data, $attributeNames);
 
                 if ($attributes === array())
@@ -641,9 +626,7 @@ abstract class Document extends CModel {
                 $newData = array_diff($data, $attributeNames);
             }
 
-            $relations = $owner->getMetaData()->relations;
-            if (empty($newData))
-                $newData = array_keys($relations);
+            $relations = $this->getMetaData()->relations;
             $queue = array();
 
             foreach ($newData as $name => $data) {
@@ -652,71 +635,65 @@ abstract class Document extends CModel {
                     $data = null;
                 }
 
-                if (!$owner->hasRelated($name))
+                if (!$this->hasRelated($name))
                     continue;
 
                 if ($relations[$name] instanceof BelongsToRelation) {
                     Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
-                    $related = $owner->getRelated($name);
+                    $related = $this->getRelated($name);
 
                     if ($data !== null)
-                        $this->internalSave($data, $related);
+                        $related->internalSave($data);
                     else
                         $related->getIsNewRecord() ? $related->insert() : $related->update();
 
-                    $owner->insertRelation($related, $name, $relations[$name]->foreignKey);
+                    $this->pushRelation($related, $name);
                 }
                 else
-                    $queue[] = array($relations[$name]->foreignKey, $name, $data);
+                    $queue[] = array($name, $data);
             }
 
-            if (!($owner->getIsNewRecord() ? $owner->insert($attributes) : $owner->update($attributes)))
-                return false;
+            if($this->getIsNewRecord() && empty($this->primaryKey))
+                if(!$this->insert($attributes))
+                    return false;
+                elseif(empty($queue))
+                    return true;
 
             /**
              * @todo May need to separate saving from the process, until the end, to prevent repetitive saving
              */
             foreach ($queue as $pack) {
-                list($foreignKey, $name, $data) = $pack;
-                $related = $owner->getRelated($name);
+                list($name, $data) = $pack;
+                $related = $this->getRelated($name);
 
                 if ($relations[$name] instanceof HasManyRelation) {
-                    Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
                     foreach ($related as $model) {
-                        $model->insertRelation($owner, $foreignKey, $name);
-
                         if ($data === null)
                             $model->getIsNewRecord() ? $model->insert() : $model->update();
                         else
-                            $this->internalSave($data, $model);
+                            $model->internalSave($data);
+
+                        Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
+                        $this->pushRelation($model, $name);
                     }
                 }else {
-                    Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
-                    $related->insertRelation($owner, $foreignKey, $name);
-
                     if ($data === null)
                         $related->getIsNewRecord() ? $related->insert() : $related->update();
                     else
-                        $this->internalSave($data, $related);
+                        $related->internalSave($data);
+
+                    Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
+                    $this->pushRelation($related, $name);
                 }
             }
+
+            if (!($this->getIsNewRecord() ? $this->insert($attributes) : $this->update($attributes)))
+                return false;
 
             return true;
         } catch (Exception $e) {
             throw $e;
         }
-    }
-
-    public function insertRelation(Document $relationModel, $relationName, $relationForeignName) {
-        Yii::trace('Creating relation between ' . get_class($this) . '->' . $relationName . ' and ' . get_class($relationModel) . '->' . $relationForeignName, 'ext.activedocument.' . get_class($this));
-        $this->pushRelation($relationModel, $relationName);
-        $relationModel->pushRelation($this, $relationForeignName);
-    }
-
-    public function dropRelation(Document $relationModel, $relationName, $relationForeignName) {
-        Yii::trace('Dropping relation between ' . get_class($this) . '->' . $relationName . ' and ' . get_class($relationModel) . '->' . $relationForeignName, 'ext.activedocument.' . get_class($this));
-        $this->popRelation($relationModel, $relationName);
-        $relationModel->popRelation($this, $relationForeignName);
     }
 
     public function pushRelation(Document $relationModel, $relationName) {
@@ -731,8 +708,6 @@ abstract class Document extends CModel {
                 $this->getObject()->data[$relationName][] = $pk;
         }else
             $this->getObject()->data[$relationName] = $pk;
-
-        $this->_updatedRelations[$relationName] = $relationName;
     }
 
     public function popRelation(Document $relationModel, $relationName) {
@@ -748,8 +723,6 @@ abstract class Document extends CModel {
                 unset($this->getObject()->data[$relationName][$key]);
         else
             unset($this->getObject()->data[$relationName]);
-
-        $this->_updatedRelations[$relationName] = $relationName;
     }
 
     public function onBeforeSave(Event $event) {
@@ -834,7 +807,6 @@ abstract class Document extends CModel {
             $this->_object->data[$name] = $value;
         }
         $this->_object->setKey($this->_pk);
-        \CVarDumper::dump($this->_object->data, 10, true);
         return $this->_object->store();
     }
 
