@@ -16,10 +16,11 @@ Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.rii
  * @property int $r
  * @property int $w
  * @property int $dw
+ * @property bool $enableProfiling
  */
 class Adapter extends \ext\activedocument\Adapter {
 
-    protected function loadStorageInstance(array $attributes=null) {
+    protected function loadStorageInstance(array $attributes = null) {
         $storageInstance = new \riiak\Riiak;
         if (!empty($attributes))
             foreach ($attributes as $key => $value)
@@ -36,7 +37,7 @@ class Adapter extends \ext\activedocument\Adapter {
      * @param bool $reset
      * @return \riiak\MapReduce
      */
-    public function getMapReduce($reset=false) {
+    public function getMapReduce($reset = false) {
         return $this->_storageInstance->getMapReduce($reset);
     }
 
@@ -56,21 +57,21 @@ class Adapter extends \ext\activedocument\Adapter {
          * If no phases are to be run, skip m/r and perform async object fetch
          * @todo With a small data subset, performance is roughly equal to m/r, need to
          * test large set of data
-         * 
+         *
          * @todo Disabling, as this doesn't account for sorting & pagination
          */
-        /*if(empty($mr->phases))
-            if($mr->inputMode=='bucket') {
-                $container = $this->getContainer($mr->inputs);
-                return $container->getObjects($container->getKeys());
-            } else {
-                return $container->getObjects(array_map(function($input)use(&$container){
-                        if(empty($container))
-                            $container = $this->getContainer($input['container']);
-                        return $input['key'];
-                    },$criteria->inputs));
-            }
-        */
+        /* if(empty($mr->phases))
+          if($mr->inputMode=='bucket') {
+          $container = $this->getContainer($mr->inputs);
+          return $container->getObjects($container->getKeys());
+          } else {
+          return $container->getObjects(array_map(function($input)use(&$container){
+          if(empty($container))
+          $container = $this->getContainer($input['container']);
+          return $input['key'];
+          },$criteria->inputs));
+          }
+         */
         $mr->map('function(value){return [value];}');
 
         /**
@@ -87,7 +88,7 @@ class Adapter extends \ext\activedocument\Adapter {
                     var field = "' . $field . '";
                     var str1 = Riak.mapValuesJson(' . ($desc ? 'b' : 'a') . ')[0];
                     var str2 = Riak.mapValuesJson(' . ($desc ? 'a' : 'b') . ')[0];
-                        
+
                     if (((typeof str1 === "undefined" || str1 === null) ? undefined :
                     str1[field]) < ((typeof str2 === "undefined" || str2 === null) ? undefined :
                     str2[field])) {
@@ -109,13 +110,13 @@ class Adapter extends \ext\activedocument\Adapter {
             $offset = $criteria->offset > 0 ? $criteria->offset : 0;
             $mr->reduce('Riak.reduceSlice', array('arg' => array($offset, $offset + $criteria->limit)));
         }
-        
+
         /**
          * Filter not found
          */
         $results = array_filter($mr->run(), function($r) {
-            return!array_key_exists('not_found', $r);
-        });
+                    return!array_key_exists('not_found', $r);
+                });
 
         $objects = array();
         if (!empty($results))
@@ -158,23 +159,23 @@ class Adapter extends \ext\activedocument\Adapter {
         if (!empty($criteria->phases))
             foreach ($criteria->phases as $phase)
                 $mr->addPhase($phase['phase'], $phase['function'], $phase['args']);
-        
+
         /*
-        if (!empty($criteria->params)) {
-            foreach ($criteria->params as key=>value) {
-                $mr->map('
-                function(value){
-                    if(!value["not_found"]) {
-                        var object = Riak.mapValuesJson(value)[0];
-                        if(' . $key . '=='.$value.'/))) {
-                            return [[value.bucket,value.key]];
-                        }
-                    }
-                    return [];
-                }
-                    ');
-        }
-        */
+          if (!empty($criteria->params)) {
+          foreach ($criteria->params as key=>value) {
+          $mr->map('
+          function(value){
+          if(!value["not_found"]) {
+          var object = Riak.mapValuesJson(value)[0];
+          if(' . $key . '=='.$value.'/))) {
+          return [[value.bucket,value.key]];
+          }
+          }
+          return [];
+          }
+          ');
+          }
+         */
 
         if (!empty($criteria->search))
             foreach ($criteria->search as $column) {

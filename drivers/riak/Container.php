@@ -82,7 +82,7 @@ class Container extends \ext\activedocument\Container {
         $objectInstances = array_map(function($key)use(&$containerInstance) {
                     return $containerInstance->newObject($key);
                 }, $keys);
-        $objectInstances = \riiak\Object::reloadMulti($objectInstances);
+        $objectInstances = \riiak\Object::reloadMulti($containerInstance->client, $objectInstances);
 
         $container = $this;
         return array_map(function(\riiak\Object &$objectInstance)use(&$container) {

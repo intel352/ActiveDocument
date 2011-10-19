@@ -73,12 +73,15 @@ class MetaData extends CComponent {
             return $this->_classMeta;
         $reflectionClass = $this->getReflectionClass();
 
-        $parentClass = $reflectionClass->getParentClass();
         $properties = $relations = array();
+        /**
+         * @todo Temporarily disabling, need logic so this only executes when required
+        $parentClass = $reflectionClass->getParentClass();
         if($parentClass->getNamespaceName()!='ext\activedocument') {
             $properties = Document::model($parentClass->getName())->getMetaData()->getProperties();
             $relations = Document::model($parentClass->getName())->getMetaData()->getRelations();
         }
+         */
 
         $this->_classMeta = new \ArrayObject(array(
                     'properties' => new \ArrayObject($properties, \ArrayObject::ARRAY_AS_PROPS),
