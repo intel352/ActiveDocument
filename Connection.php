@@ -28,7 +28,6 @@ class Connection extends CApplicationComponent {
     );
     protected $_attributes = array();
     private $_active = false;
-    private $_transaction;
     /**
      * @var \ext\activedocument\Adapter
      */
@@ -106,20 +105,6 @@ class Connection extends CApplicationComponent {
     public function createCommand($query=null) {
         $this->setActive(true);
         return new CDbCommand($this, $query);
-    }
-
-    public function getCurrentTransaction() {
-        if ($this->_transaction !== null) {
-            if ($this->_transaction->getActive())
-                return $this->_transaction;
-        }
-        return null;
-    }
-
-    public function beginTransaction() {
-        $this->setActive(true);
-        $this->_adapter->beginTransaction();
-        return $this->_transaction = new CDbTransaction($this);
     }
 
     /**

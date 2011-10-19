@@ -206,7 +206,7 @@ class MetaData extends CComponent {
      * Adds a relation.
      *
      * $config is an array with the following elements:
-     * relation type, the related active record class
+     * relation type, the related active document class
      *
      * @throws Exception
      * @param string $name $name Name of the relation.
@@ -227,7 +227,7 @@ class MetaData extends CComponent {
             if(isset($this->getClassMeta()->properties[$name]))
                 unset($this->getClassMeta()->properties[$name]);
         } else
-            throw new Exception(Yii::t('yii', 'Active document "{class}" has an invalid configuration for relation "{relation}". It must specify the relation type and the related active record class.', array('{class}' => get_class($this->_model), '{relation}' => $name)));
+            throw new Exception(Yii::t('yii', 'Active document "{class}" has an invalid configuration for relation "{relation}". It must specify the relation type and the related active document class.', array('{class}' => get_class($this->_model), '{relation}' => $name)));
     }
 
     /**

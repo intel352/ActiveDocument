@@ -40,7 +40,7 @@ abstract class BaseRelation extends CComponent {
      * @param string $className name of the related active record class
      * @param array $options additional options (name=>value). The keys must be the property names of this class.
      */
-    public function __construct($name, $className, $options=array()) {
+    public function __construct($name, $className, $options = array()) {
         $this->name = $name;
         $this->className = $className;
         foreach ($options as $name => $value)
@@ -179,7 +179,7 @@ abstract class Relation extends BaseRelation {
  * @author $Author: intel352 $
  */
 class BelongsToRelation extends Relation {
-    
+
 }
 
 /**
@@ -252,5 +252,5 @@ class HasManyRelation extends Relation {
  * @author $Author: intel352 $
  */
 class ManyManyRelation extends HasManyRelation {
-    
+
 }
