@@ -23,11 +23,6 @@ abstract class BaseRelation extends CComponent {
     public $className;
 
     /**
-     * @var string foreign class' name for this relation
-     */
-    public $foreignKey;
-
-    /**
      * @var array the parameters that are to be bound to the condition.
      * The keys are parameter placeholder names, and the values are parameter values.
      */
@@ -43,13 +38,11 @@ abstract class BaseRelation extends CComponent {
      * Constructor.
      * @param string $name name of the relation
      * @param string $className name of the related active record class
-     * @param string $foreignKey the related class' name for this relation
      * @param array $options additional options (name=>value). The keys must be the property names of this class.
      */
-    public function __construct($name, $className, $foreignKey, $options=array()) {
+    public function __construct($name, $className, $options = array()) {
         $this->name = $name;
         $this->className = $className;
-        $this->foreignKey = $foreignKey;
         foreach ($options as $name => $value)
             $this->$name = $value;
     }
@@ -186,7 +179,7 @@ abstract class Relation extends BaseRelation {
  * @author $Author: intel352 $
  */
 class BelongsToRelation extends Relation {
-    
+
 }
 
 /**
@@ -259,5 +252,5 @@ class HasManyRelation extends Relation {
  * @author $Author: intel352 $
  */
 class ManyManyRelation extends HasManyRelation {
-    
+
 }
