@@ -50,6 +50,40 @@ class Adapter extends \ext\activedocument\Adapter {
         $result = array_shift($result);
         return $result;
     }
+    
+    /**
+     * Method to change getObjects() method response.
+     * 
+     * @param array $data
+     * @return array
+     */
+    public function getObjectsData($data){
+        /*
+         * Check if data array is not empty.
+         */
+        if(empty($data))
+            return;
+        /*
+         * Declare result data array and index.
+         */
+        $resultData = array();
+        $index = 0;
+        $valueIndex = 0;
+        /*
+         * Prepare loop to generate result array.
+         */
+        foreach($data as $key => $value){
+            $resultData[$index]['bucket'] = $value->data['bucket'];
+            $resultData[$index]['key'] = $value->data['key'];
+            $resultData[$index]['values'][$valueIndex]['data'] = json_encode($value->data);
+            $resultData[$index]['values'][$valueIndex]['metadata'] = array();
+            $index++;
+        }
+        /*
+         * Return result data array.
+         */
+        return $resultData;
+    }
 
     public function find(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
@@ -60,18 +94,32 @@ class Adapter extends \ext\activedocument\Adapter {
          *
          * @todo Disabling, as this doesn't account for sorting & pagination
          */
-        /* if(empty($mr->phases))
-          if($mr->inputMode=='bucket') {
-          $container = $this->getContainer($mr->inputs);
-          return $container->getObjects($container->getKeys());
-          } else {
-          return $container->getObjects(array_map(function($input)use(&$container){
-          if(empty($container))
-          $container = $this->getContainer($input['container']);
-          return $input['key'];
-          },$criteria->inputs));
-          }
-         */
+        if(empty($mr->phases)){
+            $result = array();
+            $resultObjectData = array();
+            $container = $this->getContainer($mr->inputs);
+            if($mr->inputMode=='bucket') {
+                $result = $container->getObjects($container->getKeys());
+                $resultObjectData = $this->getObjectsData($result);
+                $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+                /**
+                 * @todo Disable this functionality because of it is not working for pagination and sorting.
+                 */
+                //return $objects;
+            } else {
+                $result = $container->getObjects(array_map(function($input)use(&$container){
+                        if(empty($container))
+                            $container = $this->getContainer($input['container']);
+                        return $input['key'];
+                    },$criteria->inputs));
+                $resultObjectData = $this->getObjectsData($result);
+                $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+                /**
+                 * @todo Disable this functionality because of it is not working for pagination and sorting.
+                 */
+                //return $objects;
+            }
+        }
         $mr->map('function(value){return [value];}');
 
         /**

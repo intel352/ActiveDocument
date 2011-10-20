@@ -86,7 +86,17 @@ class Container extends \ext\activedocument\Container {
 
         $container = $this;
         return array_map(function(\riiak\Object &$objectInstance)use(&$container) {
-                            return new Object($container, $objectInstance->key, $objectInstance->getData());
+                            /*
+                             * Declare array to set bucket and key details for instances
+                             */
+                            $data = array();
+                            $data = $objectInstance->getData();
+                            /*
+                             * Add key and bucket details for instance object.
+                             */
+                            $data['key'] = $objectInstance->key;
+                            $data['bucket'] = $objectInstance->bucket->name;
+                           return new Object($container, $objectInstance->key, $data);
                         }, $objectInstances);
     }
 
