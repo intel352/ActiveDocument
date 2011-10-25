@@ -393,10 +393,20 @@ abstract class Document extends CModel {
         return $this->getContainerName() === $document->getContainerName() && $this->getPrimaryKey() === $document->getPrimaryKey();
     }
 
+    /**
+     * Returns the propert[y|ies] used to compose the model pk
+     *
+     * @return string|array
+     */
     public function primaryKey() {
         return '_pk';
     }
 
+    /**
+     * Returns the model's pk value
+     *
+     * @return mixed
+     */
     public function getPrimaryKey() {
         $pk = $this->primaryKey();
         if (is_string($pk))
