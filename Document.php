@@ -131,8 +131,9 @@ abstract class Document extends CModel {
 
     public function setObject(Object $object) {
         $this->_object = $object;
-        $this->ensurePk();
-        if ($this->getIsNewRecord())
+        if (!$this->getIsNewRecord())
+            $this->ensurePk();
+        else
             $this->_object->data = $this->getMetaData()->attributeDefaults;
         $this->setAttributes($this->_object->data, false);
     }
@@ -174,12 +175,12 @@ abstract class Document extends CModel {
     public function &__get($name) {
         if (isset($this->_attributes[$name]))
             return $this->_attributes[$name];
-        else if (isset($this->getMetaData()->attributes[$name])) {
+        else if (isset($this->getMetaData()->attributes->$name)) {
             $return = null;
             return $return;
         } else if (isset($this->_related[$name]))
             return $this->_related[$name];
-        else if (isset($this->getMetaData()->relations[$name]))
+        else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name);
         else {
             $return = parent::__get($name);
@@ -189,7 +190,7 @@ abstract class Document extends CModel {
 
     public function __set($name, $value) {
         if ($this->setAttribute($name, $value) === false) {
-            if (isset($this->getMetaData()->relations[$name]))
+            if (isset($this->getMetaData()->relations->$name))
                 $this->_related[$name] = $value;
             else
                 parent::__set($name, $value);
@@ -199,27 +200,27 @@ abstract class Document extends CModel {
     public function __isset($name) {
         if (isset($this->_attributes[$name]))
             return true;
-        else if (isset($this->getMetaData()->attributes[$name]))
+        else if (isset($this->getMetaData()->attributes->$name))
             return false;
         else if (isset($this->_related[$name]))
             return true;
-        else if (isset($this->getMetaData()->relations[$name]))
+        else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name) !== null;
         else
             return parent::__isset($name);
     }
 
     public function __unset($name) {
-        if (isset($this->getMetaData()->attributes[$name]))
+        if (isset($this->getMetaData()->attributes->$name))
             unset($this->_attributes[$name]);
-        else if (isset($this->getMetaData()->relations[$name]))
-            $this->_related[$name] = null;
+        else if (isset($this->getMetaData()->relations->$name))
+            unset($this->_related[$name]);
         else
             parent::__unset($name);
     }
 
     public function __call($name, $parameters) {
-        if (isset($this->getMetaData()->relations[$name])) {
+        if (isset($this->getMetaData()->relations->$name)) {
             if (empty($parameters))
                 return $this->getRelated($name, false);
             else
@@ -318,7 +319,7 @@ abstract class Document extends CModel {
      * @param string $foreignName the name of this relationship in the related document. If not empty, relation will be set both ways
      */
     public function addRelated($name, $document, $foreignName = null) {
-        if ($this->getMetaData()->relations[$name] instanceof HasManyRelation && !is_array($document)) {
+        if ($this->getMetaData()->relations->$name instanceof HasManyRelation && !is_array($document)) {
             if (!isset($this->_related[$name]) || !is_array($this->_related[$name]))
                 $this->_related[$name] = array();
             $this->_related[$name][] = $document;
@@ -336,7 +337,7 @@ abstract class Document extends CModel {
     }
 
     public function hasAttribute($name) {
-        return isset($this->getMetaData()->attributes[$name]);
+        return isset($this->getMetaData()->attributes->$name);
     }
 
     public function getAttribute($name) {
@@ -349,7 +350,7 @@ abstract class Document extends CModel {
     public function setAttribute($name, $value) {
         if (property_exists($this, $name))
             $this->$name = $value;
-        else if (isset($this->getMetaData()->attributes[$name]))
+        else if (isset($this->getMetaData()->attributes->$name))
             $this->_attributes[$name] = $value;
         else
             return false;
@@ -436,7 +437,7 @@ abstract class Document extends CModel {
      * Method to ensure that $this->_pk is defined correctly 
      */
     protected function ensurePk() {
-        if (!$this->getIsNewRecord() && $this->_pk === null)
+        if ($this->_pk === null)
             if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null)
                 $this->_pk = $this->stringify($this->getPrimaryKey());
             elseif ($this->_object->getKey() !== null)
@@ -474,7 +475,7 @@ abstract class Document extends CModel {
     }
 
     public function attributeNames() {
-        return array_keys($this->getMetaData()->attributes);
+        return array_keys((array) $this->getMetaData()->attributes);
     }
 
     public function rules() {
@@ -492,9 +493,9 @@ abstract class Document extends CModel {
     public function search(array $attributes = array()) {
         $criteria = new Criteria;
 
-        $attributes = array_intersect_key($this->getMetaData()->attributes, array_flip(!empty($attributes) ? $attributes : $this->getSafeAttributeNames()));
+        $attributes = array_intersect_key((array) $this->getMetaData()->attributes, array_flip(!empty($attributes) ? $attributes : $this->getSafeAttributeNames()));
         foreach ($attributes as $name => $attribute) {
-            if ($attribute['type'] === 'string')
+            if ($attribute->type === 'string')
                 $criteria->compare($name, $this->$name, true);
             else
                 $criteria->compare($name, $this->$name);
@@ -674,7 +675,7 @@ abstract class Document extends CModel {
                 /**
                  * If the relation was already set, skip 
                  */
-                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey()===$this->getObject()->data[$name])
+                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey() === $this->getObject()->data[$name])
                     continue;
 
                 Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
@@ -768,7 +769,7 @@ abstract class Document extends CModel {
         if (empty($pk))
             throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!'));
 
-        if ($this->getMetaData()->relations[$relationName] instanceof HasManyRelation) {
+        if ($this->getMetaData()->relations->$relationName instanceof HasManyRelation) {
             if (!isset($this->getObject()->data[$relationName]) || !is_array($this->getObject()->data[$relationName]))
                 $this->getObject()->data[$relationName] = array();
             if (!in_array($pk, $this->getObject()->data[$relationName]))
@@ -792,7 +793,7 @@ abstract class Document extends CModel {
         if (empty($pk))
             throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!'));
 
-        if ($this->getMetaData()->relations[$relationName] instanceof HasManyRelation && is_array($this->getObject()->data[$relationName]))
+        if ($this->getMetaData()->relations->$relationName instanceof HasManyRelation && is_array($this->getObject()->data[$relationName]))
             if (($key = array_search($pk, $this->getObject()->data[$relationName])))
                 unset($this->getObject()->data[$relationName][$key]);
             else
@@ -970,7 +971,7 @@ abstract class Document extends CModel {
      */
     public function findByPk($key, $condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
-        return $this->query($this->buildCriteria($condition, $params), false, is_array($key) ? $key : array($key));
+        return $this->query($this->buildCriteria($condition, $params), false, array($key));
     }
 
     public function findAll($condition = null, array $params = array()) {
@@ -983,7 +984,7 @@ abstract class Document extends CModel {
         return $this->query($this->buildCriteria($condition, $params), true, $keys);
     }
 
-    protected function query($criteria, $all = false, $keys = array()) {
+    protected function query($criteria, $all = false, array $keys = array()) {
         $this->beforeFind();
         $this->applyScopes($criteria);
 
