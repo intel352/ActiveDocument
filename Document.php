@@ -261,8 +261,10 @@ abstract class Document extends CModel {
         Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
         $relation = $md->relations[$name];
 
-        if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation))
-            return $relation instanceof HasOneRelation ? null : array();
+        if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation)){
+            $_r = $relation instanceof HasOneRelation ? null : array();
+            return $_r;
+        }
 
         if ($params !== array()) { // dynamic query
             $exists = isset($this->_related[$name]) || array_key_exists($name, $this->_related);
