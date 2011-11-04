@@ -261,7 +261,7 @@ abstract class Document extends CModel {
         Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
         $relation = $md->relations[$name];
 
-        if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation)){
+        if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation)) {
             $_r = $relation instanceof HasOneRelation ? null : array();
             return $_r;
         }
@@ -1000,8 +1000,14 @@ abstract class Document extends CModel {
          * @todo Need to implement getObjects to speed up this process
          * $objects = $this->getContainer()->getObjects($keys);
          */
-            foreach ($keys as $key)
-                $objects[] = $this->loadObject($key);
+            foreach ($keys as $key) {
+                /**
+                 * @todo This is temporary fix for issue where empty object is returned... 
+                 */
+                $obj = $this->loadObject($key);
+                if(!empty($obj->objectData))
+                    $objects[] = $obj;
+            }
         else {
             if (!$all)
                 $criteria->limit = 1;
