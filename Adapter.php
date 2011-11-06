@@ -94,7 +94,7 @@ abstract class Adapter extends CComponent {
               } */
 
             if (!isset($this->_cacheExclude[$name]) && ($duration = $this->_connection->schemaCachingDuration) > 0 && $this->_connection->schemaCacheID !== false && ($cache = Yii::app()->getComponent($this->_connection->schemaCacheID)) !== null) {
-                $key = 'activedocument.storageschema.' . $this->_connection->driver . '.' . $this->_connection->containerPrefix . '.' . $name;
+                $key = 'activedocument.storageschema.' . $this->_connection->driver . '.' . $name;
                 if (($container = $cache->get($key)) === false) {
                     $container = $this->loadContainer($realName);
                     if ($container !== null)
