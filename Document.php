@@ -342,7 +342,7 @@ abstract class Document extends CModel {
         return isset($this->getMetaData()->attributes->$name);
     }
 
-    public function getAttribute($name) {
+    public function &getAttribute($name) {
         if (property_exists($this, $name))
             return $this->$name;
         else if (isset($this->_attributes[$name]))
@@ -435,18 +435,30 @@ abstract class Document extends CModel {
         }
     }
 
+    public function setPrimaryKey($value) {
+        if ($this->primaryKey() !== '_pk')
+            throw new Exception('Unable to store custom primary key!');
+        $this->_pk = $value;
+    }
+
     /**
      * Method to ensure that $this->_pk is defined correctly 
      */
     protected function ensurePk() {
         if ($this->_pk === null)
             if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null)
-                $this->_pk = $this->stringify($this->getPrimaryKey());
+                $this->_pk = self::stringify($this->getPrimaryKey());
             elseif ($this->_object->getKey() !== null)
                 $this->_pk = $this->_object->getKey();
     }
 
+    public function getEncodedPk() {
+        $this->ensurePk();
+        return $this->_pk;
+    }
+
     /**
+     * Self-recursive function (for arrays)
      * Takes mixed variable types
      * Returns objects/arrays as json
      * Casts any other type to string
@@ -454,11 +466,10 @@ abstract class Document extends CModel {
      * @param mixed $var
      * @return string
      */
-    protected function stringify($var) {
-        /**
-         * Encode var if it is array or object
-         */
-        if (is_array($var) || is_object($var))
+    public static function stringify($var) {
+        if (is_array($var))
+            return \CJSON::encode(array_map(array('self', 'stringify'), $var));
+        if (is_object($var))
             return \CJSON::encode($var);
         return (string) $var;
     }
@@ -628,18 +639,10 @@ abstract class Document extends CModel {
      * Internal mechanism for recursively saving model & relations
      *
      * @param array $attributes Array of attributes to save
-     * @param array $models Registry of models that have been processed, to avoid endless recursion
+     * @param array $modelRelations Registry of models that have been processed, to avoid endless recursion
      * @return boolean True on success
      */
-    protected function saveInternal(array $attributes = null, &$models = array()) {
-        /**
-         * Register the models that we've processed, to help avoid/reduce recursion
-         * Best method may be just to track the container & pk? not sure... 
-         */
-        if (in_array(spl_object_hash($this), $models))
-            return true;
-        $models[] = spl_object_hash($this);
-
+    protected function saveInternal(array $attributes = null, &$modelRelations = array()) {
         if ($attributes === array())
             $attributes = null;
 
@@ -654,6 +657,15 @@ abstract class Document extends CModel {
                 continue;
 
             if ($relation instanceof BelongsToRelation) {
+                $relationHash = array(get_class($this), $relation->className);
+                sort($relationHash);
+                /**
+                 * Ensure relation hasn't already been processed 
+                 */
+                if (in_array($relationHash, $modelRelations))
+                    continue;
+                array_push($modelRelations, $relationHash);
+
                 $related = $this->getRelated($name);
 
                 /**
@@ -685,10 +697,8 @@ abstract class Document extends CModel {
                 /**
                  * Ensure $related is saved, so we have current PK 
                  */
-                if (!in_array(spl_object_hash($related), $models))
-                    $related->saveInternal(null, $models);
-
-                $this->appendRelation($related, $name);
+                if ($related->saveInternal(null, $modelRelations))
+                    $this->appendRelation($related, $name);
             }
             else
                 $queue[] = $name;
@@ -704,6 +714,15 @@ abstract class Document extends CModel {
          * @todo May need to separate saving from the process, until the end, to prevent repetitive saving
          */
         foreach ($queue as $name) {
+            $relationHash = array(get_class($this), $relations[$name]->className);
+            sort($relationHash);
+            /**
+             * Ensure relation hasn't already been processed 
+             */
+            if (in_array($relationHash, $modelRelations))
+                continue;
+            array_push($modelRelations, $relationHash);
+            
             $related = $this->getRelated($name);
 
             /**
@@ -732,8 +751,7 @@ abstract class Document extends CModel {
                     if (isset($this->getObject()->data[$name]) && !$model->getIsNewRecord() && in_array($model->getPrimaryKey(), $this->getObject()->data[$name]))
                         continue;
 
-                    if (!in_array(spl_object_hash($model), $models))
-                        $model->saveInternal(null, $models);
+                    $model->saveInternal(null, $modelRelations);
 
                     Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
                     $this->appendRelation($model, $name);
@@ -742,11 +760,10 @@ abstract class Document extends CModel {
                 /**
                  * If the relation was already set, skip 
                  */
-                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && in_array($related->getPrimaryKey(), $this->getObject()->data[$name]))
+                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey() === $this->getObject()->data[$name])
                     continue;
 
-                if (!in_array(spl_object_hash($related), $models))
-                    $related->saveInternal(null, $models);
+                $related->saveInternal(null, $modelRelations);
 
                 Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
                 $this->appendRelation($related, $name);
@@ -991,7 +1008,7 @@ abstract class Document extends CModel {
         $this->applyScopes($criteria);
 
         if (!empty($keys))
-            $keys = array_map(array($this, 'stringify'), $keys);
+            $keys = array_map(array('self', 'stringify'), $keys);
 
         $objects = array();
         $emptyCriteria = new Criteria;
@@ -1005,7 +1022,7 @@ abstract class Document extends CModel {
                  * @todo This is temporary fix for issue where empty object is returned... 
                  */
                 $obj = $this->loadObject($key);
-                if(!empty($obj->objectData))
+                if (!empty($obj->objectData))
                     $objects[] = $obj;
             }
         else {
