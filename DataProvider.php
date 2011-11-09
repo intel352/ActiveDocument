@@ -12,7 +12,7 @@ class DataProvider extends CActiveDataProvider {
      */
     public $modelClass;
     /**
-     * @var Document the finder instance (eg <code>Post::model()</code>).
+     * @var \ext\activedocument\Document the finder instance (eg <code>Post::model()</code>).
      * This property can be set by passing the finder instance as the first parameter
      * to the constructor. For example, <code>Post::model()->published()</code>.
      */
@@ -46,7 +46,7 @@ class DataProvider extends CActiveDataProvider {
 
     /**
      * Returns the query criteria.
-     * @return Criteria the query criteria
+     * @return \ext\activedocument\Criteria the query criteria
      */
     public function getCriteria() {
         if ($this->_criteria === null)
@@ -65,7 +65,7 @@ class DataProvider extends CActiveDataProvider {
 
     /**
      * Returns the sorting object.
-     * @return CSort the sorting object. If this is false, it means the sorting is disabled.
+     * @return \ext\activedocument\Sort the sorting object. If this is false, it means the sorting is disabled.
      */
     public function getSort() {
         if ($this->_sort === null) {
