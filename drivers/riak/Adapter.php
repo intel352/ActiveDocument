@@ -40,6 +40,14 @@ class Adapter extends \ext\activedocument\Adapter {
     public function getMapReduce($reset = false) {
         return $this->_storageInstance->getMapReduce($reset);
     }
+    
+    /**
+     * @param bool $reset
+     * @return \riiak\SecondaryIndexes
+     */
+    public function getSecondaryIndexObject($reset = false) {
+        return $this->_storageInstance->getSecondaryIndexObject($reset);
+    }
 
     public function count(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
@@ -86,6 +94,28 @@ class Adapter extends \ext\activedocument\Adapter {
     }
 
     public function find(\ext\activedocument\Criteria $criteria) {
+        /**
+         * Check search criteria is specified or not to fetch data using secondary indexes.
+         * @todo - As Secondary indexs support for only one key search, added second condition
+         */
+        if(!empty($criteria->search) && count($criteria->search) == 1){
+            /**
+             * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
+             * @todo Not completed- working on implementing sorting and pagination task.
+             */
+            if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
+                Yii::trace("Using secondary Indexes", "ext.activedocument.vendors.riiak");
+                $result = array();
+                $resultObjectData = array();
+                $container = $this->getContainer($mr->inputs);
+                $objSecondaryIndex = $this->getSecondaryIndexObject(true);
+                $arrKeys = $objSecondaryIndex->getKeys($criteria);
+                $result = $container->getObjects($arrKeys['keys']);
+                $resultObjectData = $this->getObjectsData($result);
+                $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+                //return $objects;
+            }
+        }
         $mr = $this->applySearchFilters($criteria);
         /**
          * If no phases are to be run, skip m/r and perform async object fetch
@@ -102,6 +132,9 @@ class Adapter extends \ext\activedocument\Adapter {
                 $result = $container->getObjects($container->getKeys());
                 $resultObjectData = $this->getObjectsData($result);
                 $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+               
+               
+                
                 /**
                  * @todo Disable this functionality because of it is not working for pagination and sorting.
                  */
@@ -174,7 +207,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
         $mr = $this->getMapReduce(true);
-
+        
         $mode = null;
         if (!empty($criteria->inputs))
             foreach ($criteria->inputs as $input)
