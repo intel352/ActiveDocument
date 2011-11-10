@@ -40,6 +40,14 @@ class Adapter extends \ext\activedocument\Adapter {
     public function getMapReduce($reset = false) {
         return $this->_storageInstance->getMapReduce($reset);
     }
+    
+    /**
+     * @param bool $reset
+     * @return \riiak\SecondaryIndexes
+     */
+    public function getSecondaryIndexObject($reset = false) {
+        return $this->_storageInstance->getSecondaryIndexObject($reset);
+    }
 
     public function count(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
@@ -87,6 +95,9 @@ class Adapter extends \ext\activedocument\Adapter {
 
     public function find(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
+        if(!empty($criteria->search)){
+            //echo "in secondary index search...";
+        }
         /**
          * If no phases are to be run, skip m/r and perform async object fetch
          * @todo With a small data subset, performance is roughly equal to m/r, need to
@@ -173,8 +184,16 @@ class Adapter extends \ext\activedocument\Adapter {
     }
 
     protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
-        $mr = $this->getMapReduce(true);
-
+        /**
+         * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
+         */
+        if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
+            Yii::trace("Using secondary Indexes", "ext.activedocument.vendors.riiak");
+            $mr = $this->getSecondaryIndexObject(true);
+        } else {
+            Yii::trace("Using MapReduce", "ext.activedocument.vendors.riiak");
+            $mr = $this->getMapReduce(true);
+        }
         $mode = null;
         if (!empty($criteria->inputs))
             foreach ($criteria->inputs as $input)
