@@ -106,6 +106,7 @@ class Adapter extends \ext\activedocument\Adapter {
             if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
                 Yii::trace("Using secondary Indexes", "ext.activedocument.vendors.riiak");
                 $result = array();
+                
                 $resultObjectData = array();
                 $container = $this->getContainer($mr->inputs);
                 $objSecondaryIndex = $this->getSecondaryIndexObject(true);
