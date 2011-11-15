@@ -100,50 +100,52 @@ class Adapter extends \ext\activedocument\Adapter {
          * Check search criteria is specified or not to fetch data using secondary indexes.
          * @todo - As Secondary indexs support for only one key search, added second condition
          */
-        if(!empty($criteria->search) && count($criteria->search) == 1){
-            /**
-             * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
-             * @todo In Progress- working on implementing sorting and pagination task.
-             */
-            if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
-                Yii::trace("Using secondary Indexes", "ext.activedocument.vendors.riiak");
-                $result = array();
-                $resultObjectData = array();
+        if(!empty($criteria->search) ) {
+            if(count($criteria->search) == 1) {
                 /**
-                 * Get container
+                 * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
+                 * @todo In Progress- working on implementing sorting and pagination task.
                  */
-                $container = $this->getContainer($mr->inputs);
-                /**
-                 * Get secondary index class object
-                 */
-                $objSecondaryIndex = $this->getSecondaryIndexObject(true);
-                /**
-                 * Get list of keys using search criteria
-                 */
-                $arrKeys = $objSecondaryIndex->getKeys($criteria);
-                $resultObjectData = array();
-                /**
-                 * Check for empty search keys
-                 */
-                if(0 < count($arrKeys['keys'])){
+                if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
+                    Yii::trace("Using secondary Indexes", "ext.activedocument.drivers.riak");
+                    $result = array();
+                    $resultObjectData = array();
                     /**
-                     * Get list of objects using keys
+                     * Get container
                      */
-                    $result = $container->getObjects($arrKeys['keys']);
-                    $resultObjectData = $this->getObjectsData($result);
-                }else{
+                    $container = $this->getContainer($mr->inputs);
                     /**
-                     * If key list is empty show no records found
+                     * Get secondary index class object
                      */
-                    $resultObjectData = array_filter($resultObjectData, function($r) {
-                        return!array_key_exists('not_found', $r);
-                    });
+                    $objSecondaryIndex = $this->getSecondaryIndexObject(true);
+                    /**
+                     * Get list of keys using search criteria
+                     */
+                    $arrKeys = $objSecondaryIndex->getKeys($criteria);
+                    $resultObjectData = array();
+                    /**
+                     * Check for empty search keys
+                     */
+                    if(0 < count($arrKeys['keys'])){
+                        /**
+                         * Get list of objects using keys
+                         */
+                        $result = $container->getObjects($arrKeys['keys']);
+                        $resultObjectData = $this->getObjectsData($result);
+                    }else{
+                        /**
+                         * If key list is empty show no records found
+                         */
+                        $resultObjectData = array_filter($resultObjectData, function($r) {
+                            return!array_key_exists('not_found', $r);
+                        });
+                    }
+                    $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+                    /**
+                     * Return object data
+                     */
+                    return $objects;
                 }
-                $objects = array_map(array($this, 'populateObject'), $resultObjectData);
-                /**
-                 * Return object data
-                 */
-                return $objects;
             }
         }
         
