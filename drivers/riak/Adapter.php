@@ -101,7 +101,6 @@ class Adapter extends \ext\activedocument\Adapter {
          * @todo - As Secondary indexs support for only one key search, added second condition
          */
         if(!empty($criteria->search) ) {
-            if(count($criteria->search) == 1) {
                 /**
                  * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
                  * @todo In Progress- working on implementing sorting and pagination task.
@@ -146,7 +145,6 @@ class Adapter extends \ext\activedocument\Adapter {
                      */
                     return $objects;
                 }
-            }
         }
         
         /**
