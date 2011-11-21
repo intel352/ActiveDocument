@@ -94,30 +94,59 @@ class Adapter extends \ext\activedocument\Adapter {
     }
 
     public function find(\ext\activedocument\Criteria $criteria) {
+        $mr = $this->applySearchFilters($criteria);
+        //$criteria->search = Array ( '0' => Array ( "column" => lastName, "keyword" => "L", "like" => 1, "escape" => 1 ) );
         /**
          * Check search criteria is specified or not to fetch data using secondary indexes.
          * @todo - As Secondary indexs support for only one key search, added second condition
          */
-        if(!empty($criteria->search) && count($criteria->search) == 1){
-            /**
-             * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
-             * @todo Not completed- working on implementing sorting and pagination task.
-             */
-            if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
-                Yii::trace("Using secondary Indexes", "ext.activedocument.vendors.riiak");
-                $result = array();
-                
-                $resultObjectData = array();
-                $container = $this->getContainer($mr->inputs);
-                $objSecondaryIndex = $this->getSecondaryIndexObject(true);
-                $arrKeys = $objSecondaryIndex->getKeys($criteria);
-                $result = $container->getObjects($arrKeys['keys']);
-                $resultObjectData = $this->getObjectsData($result);
-                $objects = array_map(array($this, 'populateObject'), $resultObjectData);
-                //return $objects;
-            }
+        if(!empty($criteria->search) ) {
+                /**
+                 * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
+                 * @todo In Progress- working on implementing sorting and pagination task.
+                 */
+                if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
+                    Yii::trace("Using secondary Indexes", "ext.activedocument.drivers.riak");
+                    $result = array();
+                    $resultObjectData = array();
+                    /**
+                     * Get container
+                     */
+                    $container = $this->getContainer($mr->inputs);
+                    /**
+                     * Get secondary index class object
+                     */
+                    $objSecondaryIndex = $this->getSecondaryIndexObject(true);
+                    /**
+                     * Get list of keys using search criteria
+                     */
+                    $arrKeys = $objSecondaryIndex->getKeys($criteria);
+                    $resultObjectData = array();
+                    /**
+                     * Check for empty search keys
+                     */
+                    if(0 < count($arrKeys['keys'])){
+                        /**
+                         * Get list of objects using keys
+                         */
+                        $result = $container->getObjects($arrKeys['keys']);
+                        $resultObjectData = $this->getObjectsData($result);
+                    }else{
+                        /**
+                         * If key list is empty show no records found
+                         */
+                        $resultObjectData = array_filter($resultObjectData, function($r) {
+                            return!array_key_exists('not_found', $r);
+                        });
+                    }
+                    $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+                    /**
+                     * Return object data
+                     */
+                    return $objects;
+                }
         }
-        $mr = $this->applySearchFilters($criteria);
+        
         /**
          * If no phases are to be run, skip m/r and perform async object fetch
          * @todo With a small data subset, performance is roughly equal to m/r, need to
@@ -133,9 +162,6 @@ class Adapter extends \ext\activedocument\Adapter {
                 $result = $container->getObjects($container->getKeys());
                 $resultObjectData = $this->getObjectsData($result);
                 $objects = array_map(array($this, 'populateObject'), $resultObjectData);
-               
-               
-                
                 /**
                  * @todo Disable this functionality because of it is not working for pagination and sorting.
                  */
