@@ -127,23 +127,20 @@ class Adapter extends \ext\activedocument\Adapter {
                      */
                     if(0 < count($arrKeys['keys'])){
                         /**
-                         * Get list of objects using keys
+                         * Set search criteria for Map/Reduce
                          */
-                        $result = $container->getObjects($arrKeys['keys']);
-                        $resultObjectData = $this->getObjectsData($result);
+                        $criteria->inputs = $objSecondaryIndex->prepareInputKeys($arrKeys['keys'], $criteria->container);
+                        /**
+                         * Update Map/Reduce criteria using list of keys
+                         */
+                        unset($mr);
+                        $mr = $this->applySearchFilters($criteria);
                     }else{
                         /**
                          * If key list is empty show no records found
                          */
-                        $resultObjectData = array_filter($resultObjectData, function($r) {
-                            return!array_key_exists('not_found', $r);
-                        });
+                       return array();
                     }
-                    $objects = array_map(array($this, 'populateObject'), $resultObjectData);
-                    /**
-                     * Return object data
-                     */
-                    return $objects;
                 }
         }
         
@@ -284,8 +281,18 @@ class Adapter extends \ext\activedocument\Adapter {
           ');
           }
          */
-
-        if (!empty($criteria->search))
+        if (0 < count($criteria->inputs)) { 
+            $mr->map('
+                function(value){
+                    if(!value["not_found"]) {
+                        var object = Riak.mapValuesJson(value)[0];
+                            return [[value.bucket,value.key]];
+                    }
+                    return [];
+                }
+            ');
+        } else {
+            if(!empty($criteria->search))
             foreach ($criteria->search as $column) {
                 /**
                  * @todo preg_quote may not be appropriate for js regex
@@ -320,6 +327,7 @@ class Adapter extends \ext\activedocument\Adapter {
                 }
                     ');
             }
+        }
 
         /**
          * @todo Implement column conditions
