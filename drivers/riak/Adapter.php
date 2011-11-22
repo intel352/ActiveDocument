@@ -19,6 +19,11 @@ Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.rii
  * @property bool $enableProfiling
  */
 class Adapter extends \ext\activedocument\Adapter {
+    
+    /**
+     * @var drivers\riak\Adaptor Instance of drivers\riak\Adaptor class 
+     */
+    public static $_objInstance;
 
     protected function loadStorageInstance(array $attributes = null) {
         $storageInstance = new \riiak\Riiak;
@@ -348,4 +353,22 @@ class Adapter extends \ext\activedocument\Adapter {
         return new Object($this->getContainer($arr['bucket']), $arr['key'], \CJSON::decode($arr['values'][0]['data']), true);
     }
 
+   /**
+    * Create instance of drivers\riak\Adaptor
+    * 
+    * @return instanceof drivers\riak\Adaptor
+    */
+    public static function &getInstance($conn){
+        /*
+         * Evaluate if we have already created an instance
+         */
+        if (false === is_object(self::$_objInstance)) {
+            /*
+             * Instance has not been created yet, create one
+             */
+             $class = __CLASS__;
+             self::$_objInstance =new $class($conn);
+        }
+        return self::$_objInstance;
+    }
 }
