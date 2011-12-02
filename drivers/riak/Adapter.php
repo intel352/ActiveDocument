@@ -218,7 +218,14 @@ class Adapter extends \ext\activedocument\Adapter {
 
         if ($criteria->limit > 0) {
             $offset = $criteria->offset > 0 ? $criteria->offset : 0;
-            $mr->reduce('Riak.reduceSlice', array('arg' => array($offset, $offset + $criteria->limit)));
+            
+            $sliceCriteria = array(
+                'sort' => 'function(a, b){if (a < b) {return -1;} else if (a === b) {return 0;} else if (a > b) {return 1;}}',
+                'slice' => array($offset, $offset + $criteria->limit),
+                'reduce_phase_only_1' => true
+            );
+            
+            $mr->reduce("function(values,arg){return Riak.reduceSlice(Riak.reduceSort(values, arg['sort']), arg['slice']);}", array('arg' => $sliceCriteria));
         }
 
         /**
