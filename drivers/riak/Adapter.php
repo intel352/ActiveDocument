@@ -225,7 +225,14 @@ class Adapter extends \ext\activedocument\Adapter {
                 'reduce_phase_only_1' => true
             );
             
-            $mr->reduce("function(values,arg){return Riak.reduceSlice(Riak.reduceSort(values, arg['sort']), arg['slice']);}", array('arg' => $sliceCriteria));
+            /**
+             * Set default sorting criteria if sort order is empty
+             */
+            $sortFunction = "values";
+            if(empty($criteria->order))
+                $sortFunction = "Riak.reduceSort(values, arg['sort'])";
+            
+            $mr->reduce("function(values,arg){return Riak.reduceSlice($sortFunction, arg['slice']);}", array('arg' => $sliceCriteria));
         }
 
         /**
