@@ -434,7 +434,7 @@ abstract class Document extends CModel {
      * @param mixed $var
      * @return string
      */
-    protected function stringify($var) {
+    public function stringify($var) {
         /**
          * Encode var if it is array or object
          */
