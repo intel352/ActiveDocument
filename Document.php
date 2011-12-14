@@ -103,7 +103,7 @@ abstract class Document extends CModel {
     }
 
     public function init() {
-
+        
     }
 
     public function getOwner() {
@@ -131,8 +131,9 @@ abstract class Document extends CModel {
 
     public function setObject(Object $object) {
         $this->_object = $object;
-        $this->ensurePk();
-        if ($this->getIsNewRecord())
+        if (!$this->getIsNewRecord())
+            $this->ensurePk();
+        else
             $this->_object->data = $this->getMetaData()->attributeDefaults;
         $this->setAttributes($this->_object->data, false);
     }
@@ -171,22 +172,25 @@ abstract class Document extends CModel {
         return array_keys((array) $this);
     }
 
-    public function __get($name) {
+    public function &__get($name) {
         if (isset($this->_attributes[$name]))
             return $this->_attributes[$name];
-        else if (isset($this->getMetaData()->attributes[$name]))
-            return null;
-        else if (isset($this->_related[$name]))
+        else if (isset($this->getMetaData()->attributes->$name)) {
+            $return = null;
+            return $return;
+        } else if (isset($this->_related[$name]))
             return $this->_related[$name];
-        else if (isset($this->getMetaData()->relations[$name]))
+        else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name);
-        else
-            return parent::__get($name);
+        else {
+            $return = parent::__get($name);
+            return $return;
+        }
     }
 
     public function __set($name, $value) {
         if ($this->setAttribute($name, $value) === false) {
-            if (isset($this->getMetaData()->relations[$name]))
+            if (isset($this->getMetaData()->relations->$name))
                 $this->_related[$name] = $value;
             else
                 parent::__set($name, $value);
@@ -196,27 +200,27 @@ abstract class Document extends CModel {
     public function __isset($name) {
         if (isset($this->_attributes[$name]))
             return true;
-        else if (isset($this->getMetaData()->attributes[$name]))
+        else if (isset($this->getMetaData()->attributes->$name))
             return false;
         else if (isset($this->_related[$name]))
             return true;
-        else if (isset($this->getMetaData()->relations[$name]))
+        else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name) !== null;
         else
             return parent::__isset($name);
     }
 
     public function __unset($name) {
-        if (isset($this->getMetaData()->attributes[$name]))
+        if (isset($this->getMetaData()->attributes->$name))
             unset($this->_attributes[$name]);
-        else if (isset($this->getMetaData()->relations[$name]))
+        else if (isset($this->getMetaData()->relations->$name))
             unset($this->_related[$name]);
         else
             parent::__unset($name);
     }
 
     public function __call($name, $parameters) {
-        if (isset($this->getMetaData()->relations[$name])) {
+        if (isset($this->getMetaData()->relations->$name)) {
             if (empty($parameters))
                 return $this->getRelated($name, false);
             else
@@ -245,7 +249,7 @@ abstract class Document extends CModel {
      * @return mixed the related object(s).
      * @throws Exception if the relation is not specified in {@link relations}.
      */
-    public function getRelated($name, $refresh = false, array $params = array()) {
+    public function &getRelated($name, $refresh = false, array $params = array()) {
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
             return $this->_related[$name];
 
@@ -257,8 +261,10 @@ abstract class Document extends CModel {
         Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
         $relation = $md->relations[$name];
 
-        if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation))
-            return $relation instanceof HasOneRelation ? null : array();
+        if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation)) {
+            $_r = $relation instanceof HasOneRelation ? null : array();
+            return $_r;
+        }
 
         if ($params !== array()) { // dynamic query
             $exists = isset($this->_related[$name]) || array_key_exists($name, $this->_related);
@@ -308,34 +314,35 @@ abstract class Document extends CModel {
     }
 
     /**
-     * Do not call this method. This method is used internally to populate
-     * related objects. This method adds a related object to this record.
+     * Used to populate related objects. This method adds a related object to this record.
+     * 
      * @param string $name attribute name
-     * @param mixed $record the related record
-     * @param mixed $index the index value in the related object collection.
-     * If true, it means using zero-based integer index.
-     * If false, it means a HAS_ONE or BELONGS_TO object and no index is needed.
+     * @param array|Document $document the related document[s]
+     * @param string $foreignName the name of this relationship in the related document. If not empty, relation will be set both ways
      */
-    public function addRelatedRecord($name, $record, $index) {
-        if ($index !== false) {
-            if (!isset($this->_related[$name]))
+    public function addRelated($name, $document, $foreignName = null) {
+        if ($this->getMetaData()->relations->$name instanceof HasManyRelation && !is_array($document)) {
+            if (!isset($this->_related[$name]) || !is_array($this->_related[$name]))
                 $this->_related[$name] = array();
-            if ($record instanceof Document) {
-                if ($index === true)
-                    $this->_related[$name][] = $record;
-                else
-                    $this->_related[$name][$index] = $record;
-            }
+            $this->_related[$name][] = $document;
+        }else
+            $this->_related[$name] = $document;
+
+        if (!empty($foreignName)) {
+            if (!is_array($document))
+                $document = array($document);
+            array_walk($document, function(Document $document, $index, array $relation) {
+                        list($relationName, $relatedDocument) = $relation;
+                        $document->addRelated($relationName, $relatedDocument);
+                    }, array($foreignName, $this));
         }
-        else if (!isset($this->_related[$name]))
-            $this->_related[$name] = $record;
     }
 
     public function hasAttribute($name) {
-        return isset($this->getMetaData()->attributes[$name]);
+        return isset($this->getMetaData()->attributes->$name);
     }
 
-    public function getAttribute($name) {
+    public function &getAttribute($name) {
         if (property_exists($this, $name))
             return $this->$name;
         else if (isset($this->_attributes[$name]))
@@ -345,7 +352,7 @@ abstract class Document extends CModel {
     public function setAttribute($name, $value) {
         if (property_exists($this, $name))
             $this->$name = $value;
-        else if (isset($this->getMetaData()->attributes[$name]))
+        else if (isset($this->getMetaData()->attributes->$name))
             $this->_attributes[$name] = $value;
         else
             return false;
@@ -393,10 +400,20 @@ abstract class Document extends CModel {
         return $this->getContainerName() === $document->getContainerName() && $this->getPrimaryKey() === $document->getPrimaryKey();
     }
 
+    /**
+     * Returns the propert[y|ies] used to compose the model pk
+     *
+     * @return string|array
+     */
     public function primaryKey() {
         return '_pk';
     }
 
+    /**
+     * Returns the model's pk value
+     *
+     * @return mixed
+     */
     public function getPrimaryKey() {
         $pk = $this->primaryKey();
         if (is_string($pk))
@@ -418,15 +435,30 @@ abstract class Document extends CModel {
         }
     }
 
+    public function setPrimaryKey($value) {
+        if ($this->primaryKey() !== '_pk')
+            throw new Exception('Unable to store custom primary key!');
+        $this->_pk = $value;
+    }
+
+    /**
+     * Method to ensure that $this->_pk is defined correctly 
+     */
     protected function ensurePk() {
         if ($this->_pk === null)
             if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null)
-                $this->_pk = $this->stringify($this->getPrimaryKey());
+                $this->_pk = self::stringify($this->getPrimaryKey());
             elseif ($this->_object->getKey() !== null)
                 $this->_pk = $this->_object->getKey();
     }
 
+    public function getEncodedPk() {
+        $this->ensurePk();
+        return $this->_pk;
+    }
+
     /**
+     * Self-recursive function (for arrays)
      * Takes mixed variable types
      * Returns objects/arrays as json
      * Casts any other type to string
@@ -434,11 +466,10 @@ abstract class Document extends CModel {
      * @param mixed $var
      * @return string
      */
-    public function stringify($var) {
-        /**
-         * Encode var if it is array or object
-         */
-        if (is_array($var) || is_object($var))
+    public static function stringify($var) {
+        if (is_array($var))
+            return \CJSON::encode(array_map(array('self', 'stringify'), $var));
+        if (is_object($var))
             return \CJSON::encode($var);
         return (string) $var;
     }
@@ -457,7 +488,7 @@ abstract class Document extends CModel {
     }
 
     public function attributeNames() {
-        return array_keys($this->getMetaData()->attributes);
+        return array_keys((array) $this->getMetaData()->attributes);
     }
 
     public function rules() {
@@ -475,7 +506,7 @@ abstract class Document extends CModel {
     public function search(array $attributes = array()) {
         $criteria = new Criteria;
 
-        $attributes = array_intersect_key($this->getMetaData()->getAttributes(), array_flip(!empty($attributes) ? $attributes : $this->getSafeAttributeNames()));
+        $attributes = array_intersect_key((array) $this->getMetaData()->attributes, array_flip(!empty($attributes) ? $attributes : $this->getSafeAttributeNames()));
         foreach ($attributes as $name => $attribute) {
             if ($attribute->type === 'string')
                 $criteria->compare($name, $this->$name, true);
@@ -580,11 +611,10 @@ abstract class Document extends CModel {
 
             if (is_array($related)) {
                 foreach ($related as $model) {
-                    $valid = $model->validate(is_array($data)?$data:null, $clearErrors) && $valid;
+                    $valid = $model->validate(is_array($data) ? $data : null, $clearErrors) && $valid;
                 }
-            }
-            else {
-                $valid = $related->validate(is_array($data)?$data:null, $clearErrors) && $valid;
+            } else {
+                $valid = $related->validate(is_array($data) ? $data : null, $clearErrors) && $valid;
             }
         }
 
@@ -592,116 +622,173 @@ abstract class Document extends CModel {
     }
 
     /**
-     * Save main model and all it's related models recursively.
+     * Saves model and it's relation info
      *
      * @param bool $runValidation whether to perform validation before saving the record.
-     * @param string|array $data attribute[s] and/or relation[s].
+     * @param string|array $attributes attribute[s] to be validated/saved
      * @return boolean whether the saving succeeds.
      */
-    public function save($runValidation = true, $data = null) {
-        if (!$runValidation || $this->validate($data))
-            return $this->internalSave($data);
+    public function save($runValidation = true, $attributes = null) {
+        if (!$runValidation || $this->validate($attributes))
+            return $this->saveInternal($attributes);
         else
             return false;
     }
 
     /**
-     * @param string|array $data attribute[s] and/or relation[s].
-     * @return boolean whether the saving succeeds.
+     * Internal mechanism for recursively saving model & relations
+     *
+     * @param array $attributes Array of attributes to save
+     * @param array $modelRelations Registry of models that have been processed, to avoid endless recursion
+     * @return boolean True on success
      */
-    protected function internalSave($data = null) {
-        try {
-            if ($data === null) {
-                $attributes = null;
-                $newData = array();
-            } else {
-                if (is_string($data))
-                    $data = array($data);
-                $attributeNames = $this->attributeNames();
-                $attributes = array_intersect($data, $attributeNames);
+    protected function saveInternal(array $attributes = null, &$modelRelations = array()) {
+        if ($attributes === array())
+            $attributes = null;
 
-                if ($attributes === array())
-                    $attributes = null;
+        $relations = $this->getMetaData()->relations;
+        $queue = array();
 
-                $newData = array_diff($data, $attributeNames);
-            }
-
-            $relations = $this->getMetaData()->relations;
-            $queue = array();
-
-            foreach ($newData as $name => $data) {
-                if (!is_array($data)) {
-                    $name = $data;
-                    $data = null;
-                }
-
-                if (!$this->hasRelated($name))
-                    continue;
-
-                if ($relations[$name] instanceof BelongsToRelation) {
-                    Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
-                    $related = $this->getRelated($name);
-
-                    if ($data !== null)
-                        $related->internalSave($data);
-                    else
-                        $related->getIsNewRecord() ? $related->insert() : $related->update();
-
-                    $this->pushRelation($related, $name);
-                }
-                else
-                    $queue[] = array($name, $data);
-            }
-
-            if($this->getIsNewRecord() && empty($this->primaryKey))
-                if(!$this->insert($attributes))
-                    return false;
-                elseif(empty($queue))
-                    return true;
-
+        foreach ($relations as $name => $relation) {
             /**
-             * @todo May need to separate saving from the process, until the end, to prevent repetitive saving
+             * Only process this relation if it has been loaded (even loaded & unset) 
              */
-            foreach ($queue as $pack) {
-                list($name, $data) = $pack;
+            if (!$this->hasRelated($name))
+                continue;
+
+            if ($relation instanceof BelongsToRelation) {
+                $relationHash = array(get_class($this), $relation->className);
+                sort($relationHash);
+                /**
+                 * Ensure relation hasn't already been processed 
+                 */
+                if (in_array($relationHash, $modelRelations))
+                    continue;
+                array_push($modelRelations, $relationHash);
+
                 $related = $this->getRelated($name);
 
-                if ($relations[$name] instanceof HasManyRelation) {
-                    foreach ($related as $model) {
-                        if ($data === null)
-                            $model->getIsNewRecord() ? $model->insert() : $model->update();
-                        else
-                            $model->internalSave($data);
+                /**
+                 * If the relation is empty... 
+                 */
+                if ($related === null) {
+                    /**
+                     * If the relation was already empty, skip 
+                     */
+                    if (!isset($this->getObject()->data[$name]) || $this->getObject()->data[$name] === null || $this->getObject()->data[$name] === '')
+                        continue;
 
-                        Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
-                        $this->pushRelation($model, $name);
-                    }
-                }else {
-                    if ($data === null)
-                        $related->getIsNewRecord() ? $related->insert() : $related->update();
-                    else
-                        $related->internalSave($data);
-
-                    Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.internalSave()', 'ext.activedocument.' . get_class($this));
-                    $this->pushRelation($related, $name);
+                    /**
+                     * If the relation wasn't already empty, then it should be removed 
+                     */
+                    Yii::trace('Removing a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                    $this->clearRelation($name);
+                    continue;
                 }
+
+                /**
+                 * If the relation was already set, skip 
+                 */
+                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey() === $this->getObject()->data[$name])
+                    continue;
+
+                Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+
+                /**
+                 * Ensure $related is saved, so we have current PK 
+                 */
+                if ($related->saveInternal(null, $modelRelations))
+                    $this->appendRelation($related, $name);
+            }
+            else
+                $queue[] = $name;
+        }
+
+        if ($this->getIsNewRecord() && empty($this->primaryKey))
+            if (!$this->insert($attributes))
+                return false;
+            elseif (empty($queue))
+                return true;
+
+        /**
+         * @todo May need to separate saving from the process, until the end, to prevent repetitive saving
+         */
+        foreach ($queue as $name) {
+            $relationHash = array(get_class($this), $relations[$name]->className);
+            sort($relationHash);
+            /**
+             * Ensure relation hasn't already been processed 
+             */
+            if (in_array($relationHash, $modelRelations))
+                continue;
+            array_push($modelRelations, $relationHash);
+            
+            $related = $this->getRelated($name);
+
+            /**
+             * If the relation is empty... 
+             */
+            if ($related === null || $related === array()) {
+                /**
+                 * If the relation was already empty, skip 
+                 */
+                if (!isset($this->getObject()->data[$name]) || $this->getObject()->data[$name] === null || $this->getObject()->data[$name] === array())
+                    continue;
+
+                /**
+                 * If the relation wasn't already empty, then it should be removed 
+                 */
+                Yii::trace('Removing a ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                $this->clearRelation($name);
+                continue;
             }
 
-            if (!($this->getIsNewRecord() ? $this->insert($attributes) : $this->update($attributes)))
-                return false;
+            if ($relations[$name] instanceof HasManyRelation) {
+                foreach ($related as $model) {
+                    /**
+                     * If the relation was already set, skip 
+                     */
+                    if (isset($this->getObject()->data[$name]) && !$model->getIsNewRecord() && in_array($model->getPrimaryKey(), $this->getObject()->data[$name]))
+                        continue;
 
-            return true;
-        } catch (Exception $e) {
-            throw $e;
+                    $model->saveInternal(null, $modelRelations);
+
+                    Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                    $this->appendRelation($model, $name);
+                }
+            } else {
+                /**
+                 * If the relation was already set, skip 
+                 */
+                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey() === $this->getObject()->data[$name])
+                    continue;
+
+                $related->saveInternal(null, $modelRelations);
+
+                Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                $this->appendRelation($related, $name);
+            }
         }
+
+        if (!($this->getIsNewRecord() ? $this->insert($attributes) : $this->update($attributes)))
+            return false;
+
+        return true;
     }
 
-    public function pushRelation(Document $relationModel, $relationName) {
+    /**
+     * Pushes the $relationModel's PK into current object's relations
+     *
+     * @param Document $relationModel
+     * @param string $relationName
+     * @throws Exception 
+     */
+    public function appendRelation(Document $relationModel, $relationName) {
         $pk = $relationModel->getPrimaryKey();
-        if(empty($pk))
+        if (empty($pk))
             throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!'));
 
-        if ($this->getMetaData()->relations[$relationName] instanceof HasManyRelation) {
+        if ($this->getMetaData()->relations->$relationName instanceof HasManyRelation) {
             if (!isset($this->getObject()->data[$relationName]) || !is_array($this->getObject()->data[$relationName]))
                 $this->getObject()->data[$relationName] = array();
             if (!in_array($pk, $this->getObject()->data[$relationName]))
@@ -710,19 +797,35 @@ abstract class Document extends CModel {
             $this->getObject()->data[$relationName] = $pk;
     }
 
-    public function popRelation(Document $relationModel, $relationName) {
+    /**
+     * Removes the $relationModel's PK from current object's relations
+     *
+     * @param Document $relationModel
+     * @param string $relationName
+     * @throws Exception 
+     */
+    public function removeRelation(Document $relationModel, $relationName) {
         if (!isset($this->getObject()->data[$relationName]))
-            return true;
+            return;
 
         $pk = $relationModel->getPrimaryKey();
-        if(empty($pk))
+        if (empty($pk))
             throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!'));
 
-        if ($this->getMetaData()->relations[$relationName] instanceof HasManyRelation && is_array($this->getObject()->data[$relationName]))
-            if(($key=array_search($pk, $this->getObject()->data[$relationName])))
+        if ($this->getMetaData()->relations->$relationName instanceof HasManyRelation && is_array($this->getObject()->data[$relationName]))
+            if (($key = array_search($pk, $this->getObject()->data[$relationName])))
                 unset($this->getObject()->data[$relationName][$key]);
-        else
-            unset($this->getObject()->data[$relationName]);
+            else
+                unset($this->getObject()->data[$relationName]);
+    }
+
+    /**
+     * Empties any object associations for the specified relation
+     *
+     * @param string $relationName 
+     */
+    public function clearRelation($relationName) {
+        unset($this->getObject()->data[$relationName]);
     }
 
     public function onBeforeSave(Event $event) {
@@ -887,7 +990,7 @@ abstract class Document extends CModel {
      */
     public function findByPk($key, $condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
-        return $this->query($this->buildCriteria($condition, $params), false, is_array($key) ? $key : array($key));
+        return $this->query($this->buildCriteria($condition, $params), false, array($key));
     }
 
     public function findAll($condition = null, array $params = array()) {
@@ -900,12 +1003,12 @@ abstract class Document extends CModel {
         return $this->query($this->buildCriteria($condition, $params), true, $keys);
     }
 
-    protected function query($criteria, $all = false, $keys = array()) {
+    protected function query($criteria, $all = false, array $keys = array()) {
         $this->beforeFind();
         $this->applyScopes($criteria);
 
         if (!empty($keys))
-            $keys = array_map(array($this, 'stringify'), $keys);
+            $keys = array_map(array('self', 'stringify'), $keys);
 
         $objects = array();
         $emptyCriteria = new Criteria;
@@ -914,8 +1017,14 @@ abstract class Document extends CModel {
          * @todo Need to implement getObjects to speed up this process
          * $objects = $this->getContainer()->getObjects($keys);
          */
-            foreach ($keys as $key)
-                $objects[] = $this->loadObject($key);
+            foreach ($keys as $key) {
+                /**
+                 * @todo This is temporary fix for issue where empty object is returned... 
+                 */
+                $obj = $this->loadObject($key);
+                if (!empty($obj->objectData))
+                    $objects[] = $obj;
+            }
         else {
             if (!$all)
                 $criteria->limit = 1;
