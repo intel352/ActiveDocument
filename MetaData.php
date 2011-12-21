@@ -221,11 +221,6 @@ class MetaData extends CComponent {
      * @return void
      */
     public function addRelation($name, $config) {
-        /**
-         * @todo Quick fix for numeric relations (nested)
-         */
-        if (is_int($config[0]))
-            return;
         if (isset($config[0], $config[1])) {
             $this->getClassMeta()->relations[$name] = new $config[0]($name, $config[1], array_slice($config, 2));
             /**

@@ -24,9 +24,6 @@ abstract class Document extends CModel {
     const HAS_MANY = '\ext\activedocument\HasManyRelation';
     const MANY_MANY = '\ext\activedocument\ManyManyRelation';
     const STAT = '\ext\activedocument\StatRelation';
-    const NESTED_ONE = 1;
-    const NESTED_MANY = 2;
-    const NESTED_INDEX = 3;
 
     /**
      * Override with component connection name, if not 'conn'
