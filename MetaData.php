@@ -3,7 +3,7 @@
 namespace ext\activedocument;
 
 use \Yii,
-    \CComponent;
+\CComponent;
 
 /**
  * @todo Build validation rules based on types, defaults, etc. Need support for custom type validation as well
@@ -11,6 +11,13 @@ use \Yii,
  *
  * For adding validator rules:
  * $this->getModel()->getValidatorList()->add(CValidator::createValidator($validatorName,$this,$attributes,$otherParams));
+ *
+ * @property-read \ReflectionClass $reflectionClass
+ * @property-read \ArrayObject $attributes
+ * @property-read array $attributeDefaults
+ * @property-read \ArrayObject $classMeta
+ * @property-read \ArrayObject $properties
+ * @property-read \ArrayObject $relations
  */
 class MetaData extends CComponent {
 
@@ -63,9 +70,9 @@ class MetaData extends CComponent {
         if ($this->_attributeDefaults === null) {
             $this->_attributeDefaults = array();
             array_walk($this->getProperties(), function($v, $k, &$attrDefs) {
-                        if ($v->defaultValue !== null)
-                            $attrDefs[$k] = $v->defaultValue;
-                    }, $this->_attributeDefaults);
+                if ($v->defaultValue !== null)
+                    $attrDefs[$k] = $v->defaultValue;
+            }, $this->_attributeDefaults);
         }
         return $this->_attributeDefaults;
     }
@@ -80,17 +87,17 @@ class MetaData extends CComponent {
 
         /**
          * @todo Temporarily disabling, need logic so this only executes when required
-          $properties = $relations = array();
-          $parentClass = $reflectionClass->getParentClass();
-          if($parentClass->getNamespaceName()!='ext\activedocument') {
-          $properties = Document::model($parentClass->getName())->getMetaData()->getProperties();
-          $relations = Document::model($parentClass->getName())->getMetaData()->getRelations();
-          }
+        $properties = $relations = array();
+        $parentClass = $reflectionClass->getParentClass();
+        if($parentClass->getNamespaceName()!='ext\activedocument') {
+        $properties = Document::model($parentClass->getName())->getMetaData()->getProperties();
+        $relations = Document::model($parentClass->getName())->getMetaData()->getRelations();
+        }
          */
         $this->_classMeta = new \ArrayObject(array(
-                    'properties' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
-                    'relations' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
-                        ), \ArrayObject::ARRAY_AS_PROPS);
+            'properties' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
+            'relations' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
+        ), \ArrayObject::ARRAY_AS_PROPS);
 
         /**
          * Parse class phpdoc (also detects magic properties)
@@ -116,7 +123,7 @@ class MetaData extends CComponent {
                 $this->parsePhpDoc($prop->getDocComment(), $prop);
 
                 $this->_classMeta->properties->{$prop->name}->defaultValue = $propDefaults[$prop->name];
-                $this->_classMeta->properties->{$prop->name}->class = $prop->class;
+                $this->_classMeta->properties->{$prop->name}->class        = $prop->class;
             }
         }
 
@@ -128,11 +135,12 @@ class MetaData extends CComponent {
 
     /**
      * @param bool $asArray
+     *
      * @return array|\ArrayObject
      */
     public function getProperties($asArray = false) {
         if ($asArray)
-            return (array) $this->getClassMeta()->properties;
+            return (array)$this->getClassMeta()->properties;
         return $this->getClassMeta()->properties;
     }
 
@@ -164,8 +172,8 @@ class MetaData extends CComponent {
          */
         if (!empty($phpdoc))
             array_walk($phpdoc, function(&$var) {
-                        $var = trim($var, " \t\r\n\0\x0B*");
-                    });
+                $var = trim($var, " \t\r\n\0\x0B*");
+            });
         return $phpdoc;
     }
 
@@ -194,18 +202,68 @@ class MetaData extends CComponent {
             $this->_classMeta->properties->$varName = new \ArrayObject($this->_propertySchema, \ArrayObject::ARRAY_AS_PROPS);
 
         array_walk($matches, function($v, $k, &$prop) {
-                    if (!isset($prop->$k) || ($prop->$k === null && $v !== null))
-                        $prop->$k = $v;
-                }, $this->_classMeta->properties->$varName);
+            if (!isset($prop->$k) || ($prop->$k === null && $v !== null))
+                $prop->$k = $v;
+        }, $this->_classMeta->properties->$varName);
+    }
+
+    protected function extractType($propType) {
+        switch($propType) {
+            case 'bool':
+            case 'boolean':
+                ;
+                break;
+            case 'date':
+            case 'time':
+            case 'datetime':
+            case 'timestamp':
+                ;
+                break;
+            case 'int':
+            case 'integer':
+                ;
+                break;
+            case 'float':
+            case 'double':
+            case 'number':
+                ;
+                break;
+            case 'string':
+                ;
+                break;
+            case 'resource':
+                ;
+                break;
+            case 'object':
+                ;
+                break;
+            case 'mixed':
+                ;
+                break;
+            default:
+                /**
+                 * @todo Advanced checking here, such as array regex
+                 */
+                break;
+        }
+        if (stripos($propType, 'int') !== false && stripos($propType, 'unsigned int') === false)
+            $this->type = 'integer';
+        else if (stripos($propType, 'bool') !== false)
+            $this->type = 'boolean';
+        else if (preg_match('/(real|floa|doub)/i', $propType))
+            $this->type = 'double';
+        else
+            $this->type = 'string';
     }
 
     /**
      * @param bool $asArray
+     *
      * @return array|\ArrayObject
      */
     public function getRelations($asArray = false) {
         if ($asArray)
-            return (array) $this->getClassMeta()->relations;
+            return (array)$this->getClassMeta()->relations;
         return $this->getClassMeta()->relations;
     }
 
@@ -216,8 +274,10 @@ class MetaData extends CComponent {
      * relation type, the related active document class
      *
      * @throws Exception
-     * @param string $name $name Name of the relation.
-     * @param array $config $config Relation parameters.
+     *
+     * @param string $name   $name Name of the relation.
+     * @param array  $config $config Relation parameters.
+     *
      * @return void
      */
     public function addRelation($name, $config) {
@@ -236,6 +296,7 @@ class MetaData extends CComponent {
      * Checks if there is a relation with specified name defined.
      *
      * @param string $name $name Name of the relation.
+     *
      * @return boolean
      */
     public function hasRelation($name) {
@@ -246,6 +307,7 @@ class MetaData extends CComponent {
      * Deletes a relation with specified name.
      *
      * @param string $name $name
+     *
      * @return void
      */
     public function removeRelation($name) {
