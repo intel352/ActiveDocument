@@ -509,6 +509,12 @@ abstract class Document extends CModel {
         return array_keys((array)$this->getMetaData()->attributes);
     }
 
+    /**
+     * Defines validation ruleset for models, override to prevent automatic rule generation.
+     * @todo Define rules based on attribute types
+     *
+     * @return array
+     */
     public function rules() {
         return array_merge(parent::rules(), array(
             array(implode(', ', $this->attributeNames()), 'safe', 'on' => 'search'),

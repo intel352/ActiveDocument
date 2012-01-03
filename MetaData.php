@@ -31,7 +31,7 @@ class MetaData extends CComponent {
      */
     protected $_reflectionClass;
     protected $_propertySchema = array('propVar' => null, 'access' => null, 'type' => null, 'realType' => null, 'size' => null, 'name' => null, 'description' => null, 'defaultValue' => null, 'class' => null);
-    protected $_docPropertyRegex = '/\@(?<propVar>property(?:\-(?<access>read|write))?|var)\s+(?<type>[^\s]+)(?:\s+(?:\$(?<name>[\w][[:alnum:]][\w\d]*))(?:\s*(?<description>.+))?)?/';
+    protected $_docPropertyRegex = '/\@(?<propVar>property(?:\-(?<access>read|write))?|var)\s+(?<realType>[^\s]+)(?:\s+(?:\$(?<name>[\w][[:alnum:]][\w\d]*))(?:\s*(?<description>.+))?)?/';
 
     /**
      * @var \ArrayObject
@@ -43,6 +43,13 @@ class MetaData extends CComponent {
      * @var \ArrayObject
      */
     protected $_attributeDefaults;
+
+    protected $_typeMap = array(
+        'boolean' => array('bool', 'boolean'),
+        'integer' => array('int', 'integer', 'timestamp'),
+        'double' => array('float', 'double', 'number'),
+        'string' => array('string', 'date', 'time', 'datetime', 'mixed'),
+    );
 
     public function __construct(Document $model) {
         $this->_model = $model;
@@ -124,6 +131,8 @@ class MetaData extends CComponent {
 
                 $this->_classMeta->properties->{$prop->name}->defaultValue = $propDefaults[$prop->name];
                 $this->_classMeta->properties->{$prop->name}->class        = $prop->class;
+
+                $this->extractType($this->_classMeta->properties->{$prop->name});
             }
         }
 
@@ -205,55 +214,50 @@ class MetaData extends CComponent {
             if (!isset($prop->$k) || ($prop->$k === null && $v !== null))
                 $prop->$k = $v;
         }, $this->_classMeta->properties->$varName);
+
+        $this->extractType($this->_classMeta->properties->$varName);
     }
 
-    protected function extractType($propType) {
-        switch($propType) {
-            case 'bool':
-            case 'boolean':
-                ;
-                break;
-            case 'date':
-            case 'time':
-            case 'datetime':
-            case 'timestamp':
-                ;
-                break;
-            case 'int':
-            case 'integer':
-                ;
-                break;
-            case 'float':
-            case 'double':
-            case 'number':
-                ;
-                break;
-            case 'string':
-                ;
-                break;
-            case 'resource':
-                ;
-                break;
-            case 'object':
-                ;
-                break;
-            case 'mixed':
-                ;
-                break;
-            default:
+    /**
+     * Sets a property's type, based on it's realType value. Defaults to "string" for unknown or advanced types
+     * @todo Support realType such as "string|int", and size/lengths of values (somehow)
+     * @todo Example supported types: http://www.icosaedro.it/phplint/phpdoc.html#types
+     *
+     * @param \ArrayObject $property
+     */
+    protected function extractType($property) {
+        if ($property->realType === null)
+            $property->type = 'string';
+
+        if ($property->type === null)
+            foreach ($this->_typeMap as $type => $map) {
+                if (in_array($property->realType, $map)) {
+                    $property->type = $type;
+                    break;
+                }
+            }
+
+        if ($property->type === null) {
+            /**
+             * Check for array type
+             */
+            if (substr_compare($property->realType, 'array', 0) == 0) {
                 /**
-                 * @todo Advanced checking here, such as array regex
+                 * @todo We're hard-coding arrays as strings for now...
                  */
-                break;
+                $property->type = 'string';
+                /**
+                 * @todo Implement advanced array rule matching. Rudimentary start below
+                 * @todo Structure of array could imply a selection would occur, and even perform value type validation
+                 */
+                #$property->type = 'array';
+                #preg_match('/array(\[\]((\[\])*[\w\\\\]+)*)*/', $property->realType, $matches);
+            } else
+                /**
+                 * @todo Support object/resource types specifically, for validation at the least
+                 */
+                $property->type = 'string';
         }
-        if (stripos($propType, 'int') !== false && stripos($propType, 'unsigned int') === false)
-            $this->type = 'integer';
-        else if (stripos($propType, 'bool') !== false)
-            $this->type = 'boolean';
-        else if (preg_match('/(real|floa|doub)/i', $propType))
-            $this->type = 'double';
-        else
-            $this->type = 'string';
     }
 
     /**
