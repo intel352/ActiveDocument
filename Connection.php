@@ -33,6 +33,13 @@ class Connection extends CApplicationComponent {
      */
     protected $_adapter;
 
+    /**
+     * When enabled, profiles requests using Yii::beginProfile && Yii::endProfile
+     *
+     * @var bool
+     */
+    public $enableProfiling = false;
+
     public function __construct($driver='', array $attributes=array()) {
         $this->driver = $driver;
         $this->_attributes = $attributes;
@@ -197,10 +204,10 @@ class Connection extends CApplicationComponent {
 
     public function getStats() {
         $logger = Yii::getLogger();
-        $timings = $logger->getProfilingResults(null, 'ext.activedocument.CDbCommand.query');
+        $timings = $logger->getProfilingResults(null, 'ext.activedocument.query.*');
         $count = count($timings);
         $time = array_sum($timings);
-        $timings = $logger->getProfilingResults(null, 'ext.activedocument.CDbCommand.execute');
+        $timings = $logger->getProfilingResults(null, 'ext.activedocument.execute.*');
         $count+=count($timings);
         $time+=array_sum($timings);
         return array($count, $time);

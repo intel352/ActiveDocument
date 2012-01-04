@@ -562,14 +562,23 @@ abstract class Document extends CModel {
         }
     }
 
+    /**
+     * @return \ext\activedocument\Adapter
+     */
     public function getAdapter() {
         return $this->getConnection()->getAdapter();
     }
 
+    /**
+     * @return string
+     */
     public function containerName() {
         return get_class($this);
     }
 
+    /**
+     * @return string
+     */
     public function getContainerName() {
         return $this->containerName();
     }
@@ -583,6 +592,9 @@ abstract class Document extends CModel {
         return $this->_container;
     }
 
+    /**
+     * @return array
+     */
     public function containerConfig() {
         return array();
     }
@@ -596,7 +608,12 @@ abstract class Document extends CModel {
         return $this->_md;
     }
 
-    protected function internalValidate($attributes = null, $clearErrors = true) {
+    /**
+     * @param array|null $attributes optional
+     * @param bool $clearErrors optional
+     * @return bool
+     */
+    protected function internalValidate(array $attributes = null, $clearErrors = true) {
         return parent::validate($attributes, $clearErrors);
     }
 
@@ -943,6 +960,11 @@ abstract class Document extends CModel {
         return $this->_object->store();
     }
 
+    /**
+     * @param array|null $attributes optional
+     * @return bool
+     * @throws Exception
+     */
     public function insert(array $attributes = null) {
         if (!$this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be inserted because it is not new.'));
@@ -960,6 +982,11 @@ abstract class Document extends CModel {
         return false;
     }
 
+    /**
+     * @param array|null $attributes optional
+     * @return bool
+     * @throws Exception
+     */
     public function update(array $attributes = null) {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
@@ -975,6 +1002,11 @@ abstract class Document extends CModel {
         return false;
     }
 
+    /**
+     * @param array $attributes
+     * @return bool
+     * @throws Exception
+     */
     public function saveAttributes(array $attributes) {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
@@ -988,6 +1020,10 @@ abstract class Document extends CModel {
         return false;
     }
 
+    /**
+     * @return bool
+     * @throws Exception
+     */
     public function delete() {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be deleted because it is new.'));

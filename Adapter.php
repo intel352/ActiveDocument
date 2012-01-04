@@ -12,20 +12,42 @@ abstract class Adapter extends CComponent {
      */
     protected $_connection;
     protected $_storageInstance;
+    /**
+     * @var array
+     */
     protected $_containers = array();
+    /**
+     * @var array
+     */
     protected $_cacheExclude = array();
-    protected $_errorCode;
-    protected $_errorInfo;
-    protected $_runningTransaction = false;
 
     abstract protected function loadStorageInstance(array $attributes=null);
 
+    /**
+     * @abstract
+     * @param string $name
+     * @return \ext\activedocument\Container
+     */
     abstract protected function loadContainer($name);
 
-    abstract public function count(Criteria $criteria);
+    /**
+     * @abstract
+     * @param \ext\activedocument\Criteria $criteria
+     * @return int
+     */
+    abstract protected function countInternal(Criteria $criteria);
 
-    abstract public function find(Criteria $criteria);
+    /**
+     * @abstract
+     * @param \ext\activedocument\Criteria $criteria
+     * @return array[]\ext\activedocument\Object
+     */
+    abstract protected function findInternal(Criteria $criteria);
 
+    /**
+     * @param \ext\activedocument\Connection $conn
+     * @param array|null $attributes optional
+     */
     public function __construct(Connection $conn, array $attributes=null) {
         $this->_connection = $conn;
         foreach ($conn->schemaCachingExclude as $name)
@@ -69,6 +91,9 @@ abstract class Adapter extends CComponent {
         return $this->_connection;
     }
 
+    /**
+     * @return array
+     */
     public function getConfig() {
         return $this->_connection->attributes;
     }
@@ -112,6 +137,42 @@ abstract class Adapter extends CComponent {
 
             return $this->_containers[$name] = $container;
         }
+    }
+
+    /**
+     * @param \ext\activedocument\Criteria $criteria
+     * @return int
+     */
+    public function count(Criteria $criteria) {
+        if ($this->getConnection()->enableProfiling) {
+            $profileToken = 'ext.activedocument.query.count(' . \CVarDumper::dumpAsString(array_filter($criteria->toArray())) . ')';
+            Yii::beginProfile($profileToken, 'ext.activedocument.query.count');
+        }
+
+        $result = $this->countInternal($criteria);
+
+        if ($this->getConnection()->enableProfiling)
+            Yii::endProfile($profileToken, 'ext.activedocument.query.count');
+
+        return $result;
+    }
+
+    /**
+     * @param \ext\activedocument\Criteria $criteria
+     * @return array[]\ext\activedocument\Object
+     */
+    public function find(Criteria $criteria) {
+        if ($this->getConnection()->enableProfiling) {
+            $profileToken = 'ext.activedocument.query.find(' . \CVarDumper::dumpAsString(array_filter($criteria->toArray())) . ')';
+            Yii::beginProfile($profileToken, 'ext.activedocument.query.find');
+        }
+
+        $result = $this->findInternal($criteria);
+
+        if ($this->getConnection()->enableProfiling)
+            Yii::endProfile($profileToken, 'ext.activedocument.query.find');
+
+        return $result;
     }
 
 }

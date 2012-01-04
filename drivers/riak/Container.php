@@ -16,17 +16,28 @@ class Container extends \ext\activedocument\Container {
         return $this->_adapter->getStorageInstance()->bucket($this->_name);
     }
 
+    /**
+     * @param string $key
+     * @param mixed $value
+     */
     public function setProperty($key, $value) {
         $this->_containerInstance->setProperty($key, $value);
         $this->_properties[$key] = $value;
     }
 
+    /**
+     * @param string $key
+     * @return mixed
+     */
     public function getProperty($key) {
         if (!array_key_exists($key, $this->_properties))
             $this->_properties[$key] = $this->_containerInstance->getProperty($key);
         return $this->_properties[$key];
     }
 
+    /**
+     * @return array
+     */
     protected function loadProperties() {
         return $this->_containerInstance->getProperties();
     }
@@ -41,6 +52,9 @@ class Container extends \ext\activedocument\Container {
         $this->_properties = array_merge($this->_properties, $properties);
     }
 
+    /**
+     * @return bool
+     */
     public function delete() {
         return $this->deleteKeys($this->getKeys());
     }
@@ -52,6 +66,10 @@ class Container extends \ext\activedocument\Container {
         return $this->_containerInstance->getKeys();
     }
 
+    /**
+     * @param array $keys
+     * @return bool
+     */
     public function deleteKeys(array $keys) {
         array_map(function(&$object) {
                     $object->delete();

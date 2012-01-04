@@ -25,6 +25,10 @@ class Adapter extends \ext\activedocument\Adapter {
      */
     public static $_objInstance;
 
+    /**
+     * @param array|null $attributes optional
+     * @return \riiak\Riiak
+     */
     protected function loadStorageInstance(array $attributes = null) {
         $storageInstance = new \riiak\Riiak;
         if (!empty($attributes))
@@ -34,6 +38,10 @@ class Adapter extends \ext\activedocument\Adapter {
         return $storageInstance;
     }
 
+    /**
+     * @param string $name
+     * @return \ext\activedocument\drivers\riak\Container
+     */
     protected function loadContainer($name) {
         return new Container($this, $name);
     }
@@ -54,7 +62,11 @@ class Adapter extends \ext\activedocument\Adapter {
         return $this->_storageInstance->getSecondaryIndexObject($reset);
     }
 
-    public function count(\ext\activedocument\Criteria $criteria) {
+    /**
+     * @param \ext\activedocument\Criteria $criteria
+     * @return int
+     */
+    protected function countInternal(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
 
         $mr->map('function(){return [1];}');
@@ -98,7 +110,11 @@ class Adapter extends \ext\activedocument\Adapter {
         return $resultData;
     }
 
-    public function find(\ext\activedocument\Criteria $criteria) {
+    /**
+     * @param \ext\activedocument\Criteria $criteria
+     * @return array[]\ext\activedocument\drivers\riak\Object
+     */
+    protected function findInternal(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
         //$criteria->search = Array ( '0' => Array ( "column" => lastName, "keyword" => "L", "like" => 1, "escape" => 1 ) );
         /**
@@ -248,6 +264,10 @@ class Adapter extends \ext\activedocument\Adapter {
         return $objects;
     }
 
+    /**
+     * @param \ext\activedocument\Criteria $criteria
+     * @return \riiak\MapReduce
+     */
     protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
         $mr = $this->getMapReduce(true);
         
@@ -363,26 +383,12 @@ class Adapter extends \ext\activedocument\Adapter {
         return $mr;
     }
 
+    /**
+     * @param array $arr
+     * @return \ext\activedocument\drivers\riak\Object
+     */
     protected function populateObject($arr) {
         return new Object($this->getContainer($arr['bucket']), $arr['key'], \CJSON::decode($arr['values'][0]['data']), true);
     }
 
-   /**
-    * Create instance of drivers\riak\Adaptor
-    * 
-    * @return instanceof drivers\riak\Adaptor
-    */
-    public static function &getInstance($conn){
-        /*
-         * Evaluate if we have already created an instance
-         */
-        if (false === is_object(self::$_objInstance)) {
-            /*
-             * Instance has not been created yet, create one
-             */
-             $class = __CLASS__;
-             self::$_objInstance =new $class($conn);
-        }
-        return self::$_objInstance;
-    }
 }
