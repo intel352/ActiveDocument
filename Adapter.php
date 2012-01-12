@@ -3,7 +3,7 @@
 namespace ext\activedocument;
 
 use \Yii,
-    \CComponent;
+\CComponent;
 
 abstract class Adapter extends CComponent {
 
@@ -21,7 +21,7 @@ abstract class Adapter extends CComponent {
      */
     protected $_cacheExclude = array();
 
-    abstract protected function loadStorageInstance(array $attributes=null);
+    abstract protected function loadStorageInstance(array $attributes = null);
 
     /**
      * @abstract
@@ -48,7 +48,7 @@ abstract class Adapter extends CComponent {
      * @param \ext\activedocument\Connection $conn
      * @param array|null $attributes optional
      */
-    public function __construct(Connection $conn, array $attributes=null) {
+    public function __construct(Connection $conn, array $attributes = null) {
         $this->_connection = $conn;
         foreach ($conn->schemaCachingExclude as $name)
             $this->_cacheExclude[$name] = true;
@@ -100,9 +100,10 @@ abstract class Adapter extends CComponent {
 
     /**
      * @param string $name
+     * @param array $config
      * @return \ext\activedocument\Container
      */
-    public function getContainer($name, array $config=array()) {
+    public function getContainer($name, array $config = array()) {
         if (isset($this->_containers[$name]))
             return $this->_containers[$name];
         else {

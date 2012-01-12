@@ -11,8 +11,7 @@ Yii::import('ext.activedocument.Relation', true);
 /**
  * Document
  *
- * @todo    Relations are almost in place, need mechanism for determining
- *          how keys will be managed
+ * @todo    Relations are almost in place, need mechanism for determining how keys will be managed
  *
  * @version $Version: 1.0.dev.56 $
  * @author  $Author: intel352 $
@@ -32,13 +31,14 @@ Yii::import('ext.activedocument.Relation', true);
 abstract class Document extends CModel {
 
     const BELONGS_TO = '\ext\activedocument\BelongsToRelation';
-    const HAS_ONE    = '\ext\activedocument\HasOneRelation';
-    const HAS_MANY   = '\ext\activedocument\HasManyRelation';
-    const MANY_MANY  = '\ext\activedocument\ManyManyRelation';
-    const STAT       = '\ext\activedocument\StatRelation';
+    const HAS_ONE = '\ext\activedocument\HasOneRelation';
+    const HAS_MANY = '\ext\activedocument\HasManyRelation';
+    const MANY_MANY = '\ext\activedocument\ManyManyRelation';
+    const STAT = '\ext\activedocument\StatRelation';
 
     /**
      * Override with component connection name, if not 'conn'
+     * Is accessed using Late Static Binding (i.e. - static::$connName)
      *
      * @var string
      */
@@ -90,7 +90,7 @@ abstract class Document extends CModel {
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
-            $document      = self::$_models[$className] = new $className(null);
+            $document = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
             return $document;
@@ -115,11 +115,21 @@ abstract class Document extends CModel {
 
     }
 
+    /**
+     * The owner/parent of this Document (if any)
+     *
+     * @return \ext\activedocument\Document
+     */
     public function getOwner() {
         return $this->_owner;
     }
 
-    public function setOwner(Document $owner) {
+    /**
+     * The owner/parent of this Document (if any)
+     *
+     * @param \ext\activedocument\Document $owner
+     */
+    public function setOwner(Document $owner = null) {
         $this->_owner = $owner;
     }
 
@@ -399,7 +409,7 @@ abstract class Document extends CModel {
         Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.' . get_class($this));
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
             $this->_related = array();
-            $object         = $this->getObject();
+            $object = $this->getObject();
             foreach ($this->getMetaData()->attributes as $name => $attr) {
                 if (property_exists($this, $name))
                     $this->$name = $object->data[$name];
@@ -628,12 +638,12 @@ abstract class Document extends CModel {
     public function validate($data = null, $clearErrors = true) {
         if ($data === null) {
             $attributes = null;
-            $newData    = array();
+            $newData = array();
         } else {
             if (is_string($data))
                 $data = array($data);
             $attributeNames = $this->attributeNames();
-            $attributes     = array_intersect($data, $attributeNames);
+            $attributes = array_intersect($data, $attributeNames);
 
             if ($attributes === array())
                 $attributes = null;
@@ -692,7 +702,7 @@ abstract class Document extends CModel {
             $attributes = null;
 
         $relations = $this->getMetaData()->relations;
-        $queue     = array();
+        $queue = array();
 
         foreach ($relations as $name => $relation) {
             /**
@@ -1077,7 +1087,7 @@ abstract class Document extends CModel {
         if (!empty($keys))
             $keys = array_map(array('self', 'stringify'), $keys);
 
-        $objects       = array();
+        $objects = array();
         $emptyCriteria = new Criteria;
         if ($criteria == $emptyCriteria && !empty($keys)
         )
@@ -1198,7 +1208,7 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Document
      */
     protected function instantiate(Object $object) {
-        $class    = get_class($this);
+        $class = get_class($this);
         $document = new $class(null);
         return $document;
     }

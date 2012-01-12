@@ -4,17 +4,14 @@ namespace ext\activedocument\drivers\memory;
 
 /**
  * Container for Memory driver
- * 
- * @version $Version$
- * @author $Author$
  */
 class Container extends \ext\activedocument\Container {
-    
+
     protected function loadContainerInstance() {
         return new \ArrayObject(
             array(
-                'properties'=>array(),
-                'objects'=>new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS)
+                'properties' => array(),
+                'objects' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS)
             ), \ArrayObject::ARRAY_AS_PROPS);
     }
 
@@ -25,21 +22,21 @@ class Container extends \ext\activedocument\Container {
     public function setProperty($key, $value) {
         $this->_properties[$key] = $this->_containerInstance->properties[$key] = $value;
     }
-    
+
     public function delete() {
         $this->initContainer();
         return true;
     }
 
     /**
-     * @return array 
+     * @return array
      */
     public function getKeys() {
-        return array_keys((array) $this->_containerInstance->objects);
+        return array_keys((array)$this->_containerInstance->objects);
     }
-    
+
     public function deleteKeys(array $keys) {
-        foreach($keys as $key)
+        foreach ($keys as $key)
             unset($this->_containerInstance->objects[$key]);
         return true;
     }
@@ -50,8 +47,8 @@ class Container extends \ext\activedocument\Container {
      * @param bool $new
      * @return \ext\activedocument\drivers\memory\Object
      */
-    public function getObject($key=null, $data=null, $new=false) {
+    public function getObject($key = null, $data = null, $new = false) {
         return new Object($this, $key, $data, $new);
     }
-    
+
 }

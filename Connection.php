@@ -3,8 +3,8 @@
 namespace ext\activedocument;
 
 use \Yii,
-    \CApplicationComponent,
-    \CLogger;
+\CApplicationComponent,
+\CLogger;
 
 class Connection extends CApplicationComponent {
 
@@ -40,7 +40,7 @@ class Connection extends CApplicationComponent {
      */
     public $enableProfiling = false;
 
-    public function __construct($driver='', array $attributes=array()) {
+    public function __construct($driver = '', array $attributes = array()) {
         $this->driver = $driver;
         $this->_attributes = $attributes;
     }
@@ -87,10 +87,10 @@ class Connection extends CApplicationComponent {
                 $this->_active = true;
             } catch (Exception $e) {
                 if (YII_DEBUG) {
-                    throw new Exception(Yii::t('yii', 'Connection failed to open the data storage connection: {error}', array('{error}' => $e->getMessage())), (int) $e->getCode(), $e->errorInfo);
+                    throw new Exception(Yii::t('yii', 'Connection failed to open the data storage connection: {error}', array('{error}' => $e->getMessage())), (int)$e->getCode(), $e->errorInfo);
                 } else {
                     Yii::log($e->getMessage(), CLogger::LEVEL_ERROR, 'exception.ActiveDocument.Exception');
-                    throw new Exception(Yii::t('yii', 'Connection failed to open the data storage connection.'), (int) $e->getCode(), $e->errorInfo);
+                    throw new Exception(Yii::t('yii', 'Connection failed to open the data storage connection.'), (int)$e->getCode(), $e->errorInfo);
                 }
             }
         }
@@ -109,7 +109,7 @@ class Connection extends CApplicationComponent {
             throw new Exception(Yii::t('yii', 'Connection does not support {driver} storage adapter.', array('{driver}' => $this->driver)));
     }
 
-    public function createCommand($query=null) {
+    public function createCommand($query = null) {
         $this->setActive(true);
         return new CDbCommand($this, $query);
     }
@@ -208,8 +208,8 @@ class Connection extends CApplicationComponent {
         $count = count($timings);
         $time = array_sum($timings);
         $timings = $logger->getProfilingResults(null, 'ext.activedocument.execute.*');
-        $count+=count($timings);
-        $time+=array_sum($timings);
+        $count += count($timings);
+        $time += array_sum($timings);
         return array($count, $time);
     }
 
