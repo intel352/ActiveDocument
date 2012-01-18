@@ -220,6 +220,7 @@ class MetaData extends CComponent {
 
     /**
      * Sets a property's type, based on it's realType value. Defaults to "string" for unknown or advanced types
+     *
      * @todo Support realType such as "string|int", and size/lengths of values (somehow)
      * @todo Example supported types: http://www.icosaedro.it/phplint/phpdoc.html#types
      *
@@ -279,8 +280,8 @@ class MetaData extends CComponent {
      *
      * @throws Exception
      *
-     * @param string $name   $name Name of the relation.
-     * @param array  $config $config Relation parameters.
+     * @param string $name   Name of the relation.
+     * @param array  $config Relation parameters.
      *
      * @return void
      */
@@ -299,7 +300,7 @@ class MetaData extends CComponent {
     /**
      * Checks if there is a relation with specified name defined.
      *
-     * @param string $name $name Name of the relation.
+     * @param string $name Name of the relation.
      *
      * @return boolean
      */
@@ -310,7 +311,7 @@ class MetaData extends CComponent {
     /**
      * Deletes a relation with specified name.
      *
-     * @param string $name $name
+     * @param string $name
      *
      * @return void
      */

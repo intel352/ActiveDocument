@@ -8,7 +8,7 @@ use \CComponent;
  * BaseRelation class
  *
  * @version $Version: 1.0.dev.29 $
- * @author $Author: intel352 $
+ * @author  $Author: intel352 $.0
  */
 abstract class BaseRelation extends CComponent {
 
@@ -36,12 +36,13 @@ abstract class BaseRelation extends CComponent {
 
     /**
      * Constructor.
-     * @param string $name name of the relation
+     *
+     * @param string $name      name of the relation
      * @param string $className name of the related active record class
-     * @param array $options additional options (name=>value). The keys must be the property names of this class.
+     * @param array  $options   additional options (name=>value). The keys must be the property names of this class.
      */
     public function __construct($name, $className, $options = array()) {
-        $this->name = $name;
+        $this->name      = $name;
         $this->className = $className;
         foreach ($options as $name => $value)
             $this->$name = $value;
@@ -64,6 +65,7 @@ abstract class BaseRelation extends CComponent {
 
     /**
      * Merges this relation with a criteria specified dynamically.
+     *
      * @param array $criteria the dynamically specified criteria
      */
     public function mergeWith($criteria) {
@@ -88,8 +90,9 @@ abstract class BaseRelation extends CComponent {
 
 /**
  * StatRelation represents a statistical relational query.
+ *
  * @version $Version: 1.0.dev.29 $
- * @author $Author: intel352 $
+ * @author  $Author: intel352 $
  */
 class StatRelation extends BaseRelation {
 
@@ -107,6 +110,7 @@ class StatRelation extends BaseRelation {
 
     /**
      * Merges this relation with a criteria specified dynamically.
+     *
      * @param array $criteria the dynamically specified criteria
      */
     public function mergeWith($criteria) {
@@ -122,8 +126,9 @@ class StatRelation extends BaseRelation {
 
 /**
  * Relation is the base class for representing active relations that bring back related objects.
+ *
  * @version $Version: 1.0.dev.29 $
- * @author $Author: intel352 $
+ * @author  $Author: intel352 $
  */
 abstract class Relation extends BaseRelation {
 
@@ -156,6 +161,7 @@ abstract class Relation extends BaseRelation {
 
     /**
      * Merges this relation with a criteria specified dynamically.
+     *
      * @param array $criteria the dynamically specified criteria
      */
     public function mergeWith($criteria) {
@@ -175,8 +181,9 @@ abstract class Relation extends BaseRelation {
 
 /**
  * BelongsToRelation represents the parameters specifying a BELONGS_TO relation.
+ *
  * @version $Version: 1.0.dev.29 $
- * @author $Author: intel352 $
+ * @author  $Author: intel352 $
  */
 class BelongsToRelation extends Relation {
 
@@ -184,8 +191,9 @@ class BelongsToRelation extends Relation {
 
 /**
  * HasOneRelation represents the parameters specifying a HAS_ONE relation.
+ *
  * @version $Version: 1.0.dev.29 $
- * @author $Author: intel352 $
+ * @author  $Author: intel352 $
  */
 class HasOneRelation extends Relation {
 
@@ -199,8 +207,9 @@ class HasOneRelation extends Relation {
 
 /**
  * HasManyRelation represents the parameters specifying a HAS_MANY relation.
+ *
  * @version $Version: 1.0.dev.29 $
- * @author $Author: intel352 $
+ * @author  $Author: intel352 $
  */
 class HasManyRelation extends Relation {
 
@@ -228,6 +237,7 @@ class HasManyRelation extends Relation {
 
     /**
      * Merges this relation with a criteria specified dynamically.
+     *
      * @param array $criteria the dynamically specified criteria
      */
     public function mergeWith($criteria) {
@@ -248,8 +258,9 @@ class HasManyRelation extends Relation {
 
 /**
  * ManyManyRelation represents the parameters specifying a MANY_MANY relation.
+ *
  * @version $Version: 1.0.dev.29 $
- * @author $Author: intel352 $
+ * @author  $Author: intel352 $
  */
 class ManyManyRelation extends HasManyRelation {
 

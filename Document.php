@@ -31,10 +31,10 @@ Yii::import('ext.activedocument.Relation', true);
 abstract class Document extends CModel {
 
     const BELONGS_TO = '\ext\activedocument\BelongsToRelation';
-    const HAS_ONE = '\ext\activedocument\HasOneRelation';
-    const HAS_MANY = '\ext\activedocument\HasManyRelation';
-    const MANY_MANY = '\ext\activedocument\ManyManyRelation';
-    const STAT = '\ext\activedocument\StatRelation';
+    const HAS_ONE    = '\ext\activedocument\HasOneRelation';
+    const HAS_MANY   = '\ext\activedocument\HasManyRelation';
+    const MANY_MANY  = '\ext\activedocument\ManyManyRelation';
+    const STAT       = '\ext\activedocument\StatRelation';
 
     /**
      * Override with component connection name, if not 'conn'
@@ -90,7 +90,7 @@ abstract class Document extends CModel {
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
-            $document = self::$_models[$className] = new $className(null);
+            $document      = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
             return $document;
@@ -409,7 +409,7 @@ abstract class Document extends CModel {
         Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.' . get_class($this));
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
             $this->_related = array();
-            $object = $this->getObject();
+            $object         = $this->getObject();
             foreach ($this->getMetaData()->attributes as $name => $attr) {
                 if (property_exists($this, $name))
                     $this->$name = $object->data[$name];
@@ -521,6 +521,7 @@ abstract class Document extends CModel {
 
     /**
      * Defines validation ruleset for models, override to prevent automatic rule generation.
+     *
      * @todo Define rules based on attribute types
      *
      * @return array
@@ -619,8 +620,9 @@ abstract class Document extends CModel {
     }
 
     /**
-     * @param array|null $attributes optional
-     * @param bool $clearErrors optional
+     * @param array|null $attributes  optional
+     * @param bool       $clearErrors optional
+     *
      * @return bool
      */
     protected function internalValidate(array $attributes = null, $clearErrors = true) {
@@ -638,12 +640,12 @@ abstract class Document extends CModel {
     public function validate($data = null, $clearErrors = true) {
         if ($data === null) {
             $attributes = null;
-            $newData = array();
+            $newData    = array();
         } else {
             if (is_string($data))
                 $data = array($data);
             $attributeNames = $this->attributeNames();
-            $attributes = array_intersect($data, $attributeNames);
+            $attributes     = array_intersect($data, $attributeNames);
 
             if ($attributes === array())
                 $attributes = null;
@@ -702,7 +704,7 @@ abstract class Document extends CModel {
             $attributes = null;
 
         $relations = $this->getMetaData()->relations;
-        $queue = array();
+        $queue     = array();
 
         foreach ($relations as $name => $relation) {
             /**
@@ -972,6 +974,7 @@ abstract class Document extends CModel {
 
     /**
      * @param array|null $attributes optional
+     *
      * @return bool
      * @throws Exception
      */
@@ -994,6 +997,7 @@ abstract class Document extends CModel {
 
     /**
      * @param array|null $attributes optional
+     *
      * @return bool
      * @throws Exception
      */
@@ -1014,6 +1018,7 @@ abstract class Document extends CModel {
 
     /**
      * @param array $attributes
+     *
      * @return bool
      * @throws Exception
      */
@@ -1087,7 +1092,7 @@ abstract class Document extends CModel {
         if (!empty($keys))
             $keys = array_map(array('self', 'stringify'), $keys);
 
-        $objects = array();
+        $objects       = array();
         $emptyCriteria = new Criteria;
         if ($criteria == $emptyCriteria && !empty($keys)
         )
@@ -1208,7 +1213,7 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Document
      */
     protected function instantiate(Object $object) {
-        $class = get_class($this);
+        $class    = get_class($this);
         $document = new $class(null);
         return $document;
     }
