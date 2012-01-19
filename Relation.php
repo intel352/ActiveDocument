@@ -133,6 +133,11 @@ class StatRelation extends BaseRelation {
 abstract class Relation extends BaseRelation {
 
     /**
+     * @var bool If true, related document[s] will be stored within current document
+     */
+    public $nested = false;
+
+    /**
      * @var string|array specifies which related objects should be eagerly loaded when this related object is lazily loaded.
      * For more details about this property, see {@link Document::with()}.
      */
@@ -169,6 +174,9 @@ abstract class Relation extends BaseRelation {
             $criteria = $criteria->toArray();
 
         parent::mergeWith($criteria);
+
+        if (isset($criteria['nested']))
+            $this->nested = $criteria['nested'];
 
         if (isset($criteria['with']))
             $this->with = $criteria['with'];

@@ -21,12 +21,13 @@ Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.rii
 class Adapter extends \ext\activedocument\Adapter {
 
     /**
-     * @var drivers\riak\Adaptor Instance of drivers\riak\Adaptor class
+     * @var drivers\riak\Adapter Instance of drivers\riak\Adapter class
      */
     public static $_objInstance;
 
     /**
      * @param array|null $attributes optional
+     *
      * @return \riiak\Riiak
      */
     protected function loadStorageInstance(array $attributes = null) {
@@ -40,6 +41,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param string $name
+     *
      * @return \ext\activedocument\drivers\riak\Container
      */
     protected function loadContainer($name) {
@@ -48,6 +50,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param bool $reset
+     *
      * @return \riiak\MapReduce
      */
     public function getMapReduce($reset = false) {
@@ -56,6 +59,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param bool $reset
+     *
      * @return \riiak\SecondaryIndexes
      */
     public function getSecondaryIndexObject($reset = false) {
@@ -64,6 +68,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param \ext\activedocument\Criteria $criteria
+     *
      * @return int
      */
     protected function countInternal(\ext\activedocument\Criteria $criteria) {
@@ -80,6 +85,7 @@ class Adapter extends \ext\activedocument\Adapter {
      * Method to change getObjects() method response.
      *
      * @param array $data
+     *
      * @return array
      */
     public function getObjectsData($data) {
@@ -92,15 +98,15 @@ class Adapter extends \ext\activedocument\Adapter {
          * Declare result data array and index.
          */
         $resultData = array();
-        $index = 0;
+        $index      = 0;
         $valueIndex = 0;
         /*
          * Prepare loop to generate result array.
          */
         foreach ($data as $key => $value) {
-            $resultData[$index]['bucket'] = $value->data['bucket'];
-            $resultData[$index]['key'] = $value->data['key'];
-            $resultData[$index]['values'][$valueIndex]['data'] = \CJSON::encode($value->data);
+            $resultData[$index]['bucket']                          = $value->data['bucket'];
+            $resultData[$index]['key']                             = $value->data['key'];
+            $resultData[$index]['values'][$valueIndex]['data']     = \CJSON::encode($value->data);
             $resultData[$index]['values'][$valueIndex]['metadata'] = array();
             $index++;
         }
@@ -112,6 +118,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param \ext\activedocument\Criteria $criteria
+     *
      * @return array[]\ext\activedocument\drivers\riak\Object
      */
     protected function findInternal(\ext\activedocument\Criteria $criteria) {
@@ -119,16 +126,18 @@ class Adapter extends \ext\activedocument\Adapter {
         //$criteria->search = Array ( '0' => Array ( "column" => lastName, "keyword" => "L", "like" => 1, "escape" => 1 ) );
         /**
          * Check search criteria is specified or not to fetch data using secondary indexes.
+         *
          * @todo - As Secondary indexs support for only one key search, added second condition
          */
         if (!empty($criteria->search)) {
             /**
              * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
+             *
              * @todo In Progress- working on implementing sorting and pagination task.
              */
             if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
                 Yii::trace("Using secondary Indexes", "ext.activedocument.drivers.riak");
-                $result = array();
+                $result           = array();
                 $resultObjectData = array();
                 /**
                  * Get container
@@ -141,7 +150,7 @@ class Adapter extends \ext\activedocument\Adapter {
                 /**
                  * Get list of keys using search criteria
                  */
-                $arrKeys = $objSecondaryIndex->getKeys($criteria);
+                $arrKeys          = $objSecondaryIndex->getKeys($criteria);
                 $resultObjectData = array();
                 /**
                  * Check for empty search keys
@@ -167,30 +176,31 @@ class Adapter extends \ext\activedocument\Adapter {
 
         /**
          * If no phases are to be run, skip m/r and perform async object fetch
+         *
          * @todo With a small data subset, performance is roughly equal to m/r, need to test large set of data
          *
          * @todo Disabling, as this doesn't account for sorting & pagination
          */
         if (empty($mr->phases)) {
-            $result = array();
+            $result           = array();
             $resultObjectData = array();
-            $container = $this->getContainer($mr->inputs);
+            $container        = $this->getContainer($mr->inputs);
             if ($mr->inputMode == 'bucket') {
-                $result = $container->getObjects($container->getKeys());
+                $result           = $container->getObjects($container->getKeys());
                 $resultObjectData = $this->getObjectsData($result);
-                $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+                $objects          = array_map(array($this, 'populateObject'), $resultObjectData);
                 /**
                  * @todo Disable this functionality because of it is not working for pagination and sorting.
                  */
                 //return $objects;
             } else {
-                $result = $container->getObjects(array_map(function($input) use(&$container) {
+                $result           = $container->getObjects(array_map(function($input) use(&$container) {
                     if (empty($container))
                         $container = $this->getContainer($input['container']);
                     return $input['key'];
                 }, $criteria->inputs));
                 $resultObjectData = $this->getObjectsData($result);
-                $objects = array_map(array($this, 'populateObject'), $resultObjectData);
+                $objects          = array_map(array($this, 'populateObject'), $resultObjectData);
                 /**
                  * @todo Disable this functionality because of it is not working for pagination and sorting.
                  */
@@ -207,7 +217,7 @@ class Adapter extends \ext\activedocument\Adapter {
             foreach ($orderBy as $order) {
                 preg_match('/(?:(\w+)\.)?(\w+)(?:\s+(ASC|DESC))?/', trim($order), $matches);
                 $field = $matches[2];
-                $desc = (isset($matches[3]) && strcasecmp($matches[3], 'desc') === 0);
+                $desc  = (isset($matches[3]) && strcasecmp($matches[3], 'desc') === 0);
                 $mr->reduce('Riak.reduceSort', array('arg' => '
                 function(a,b){
                     var field = "' . $field . '";
@@ -265,6 +275,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param \ext\activedocument\Criteria $criteria
+     *
      * @return \riiak\MapReduce
      */
     protected function applySearchFilters(\ext\activedocument\Criteria $criteria) {
@@ -384,6 +395,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param array $arr
+     *
      * @return \ext\activedocument\drivers\riak\Object
      */
     protected function populateObject($arr) {

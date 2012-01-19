@@ -31,10 +31,10 @@ Yii::import('ext.activedocument.Relation', true);
 abstract class Document extends CModel {
 
     const BELONGS_TO = '\ext\activedocument\BelongsToRelation';
-    const HAS_ONE    = '\ext\activedocument\HasOneRelation';
-    const HAS_MANY   = '\ext\activedocument\HasManyRelation';
-    const MANY_MANY  = '\ext\activedocument\ManyManyRelation';
-    const STAT       = '\ext\activedocument\StatRelation';
+    const HAS_ONE = '\ext\activedocument\HasOneRelation';
+    const HAS_MANY = '\ext\activedocument\HasManyRelation';
+    const MANY_MANY = '\ext\activedocument\ManyManyRelation';
+    const STAT = '\ext\activedocument\StatRelation';
 
     /**
      * Override with component connection name, if not 'conn'
@@ -82,6 +82,8 @@ abstract class Document extends CModel {
     protected $_owner;
 
     /**
+     * @static
+     * @param string $className optional
      * @return \ext\activedocument\Document
      */
     public static function model($className = null) {
@@ -90,7 +92,7 @@ abstract class Document extends CModel {
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
-            $document      = self::$_models[$className] = new $className(null);
+            $document = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
             return $document;
@@ -280,6 +282,9 @@ abstract class Document extends CModel {
             throw new Exception(Yii::t('yii', '{class} does not have relation "{name}".', array('{class}' => get_class($this), '{name}' => $name)));
 
         Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
+        /**
+         * @var \ext\activedocument\BaseRelation
+         */
         $relation = $md->relations[$name];
 
         if ($this->getIsNewRecord() && !$refresh && ($relation instanceof HasOneRelation || $relation instanceof HasManyRelation)) {
@@ -296,13 +301,21 @@ abstract class Document extends CModel {
 
         $data = $this->getObject()->data;
         if (isset($data[$name])) {
-            if ($relation instanceof HasManyRelation)
-                $this->_related[$name] = Document::model($relation->className)
-                    ->findAllByPk($data[$name], null, $params);
-            /* else if ($relation instanceof StatRelation)
-              $this->_related[$name] = $relation->defaultValue; */
-            else
-                $this->_related[$name] = Document::model($relation->className)->findByPk($data[$name], null, $params);
+            if ($relation instanceof Relation && $relation->nested === true && $params === array()) {
+                Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
+                if ($relation instanceof HasManyRelation)
+                    $this->_related[$name] = Document::model($relation->className)->populateDocuments(array_map('unserialize',$data[$name]));
+                else
+                    $this->_related[$name] = Document::model($relation->className)->populateDocument(unserialize($data[$name]));
+            } else {
+                if ($relation instanceof HasManyRelation)
+                    $this->_related[$name] = Document::model($relation->className)
+                        ->findAllByPk($data[$name], null, $params);
+                /* else if ($relation instanceof StatRelation)
+             $this->_related[$name] = $relation->defaultValue; */
+                else
+                    $this->_related[$name] = Document::model($relation->className)->findByPk($data[$name], null, $params);
+            }
         }
 
         if (!isset($this->_related[$name])) {
@@ -409,7 +422,7 @@ abstract class Document extends CModel {
         Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.' . get_class($this));
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
             $this->_related = array();
-            $object         = $this->getObject();
+            $object = $this->getObject();
             foreach ($this->getMetaData()->attributes as $name => $attr) {
                 if (property_exists($this, $name))
                     $this->$name = $object->data[$name];
@@ -640,12 +653,12 @@ abstract class Document extends CModel {
     public function validate($data = null, $clearErrors = true) {
         if ($data === null) {
             $attributes = null;
-            $newData    = array();
+            $newData = array();
         } else {
             if (is_string($data))
                 $data = array($data);
             $attributeNames = $this->attributeNames();
-            $attributes     = array_intersect($data, $attributeNames);
+            $attributes = array_intersect($data, $attributeNames);
 
             if ($attributes === array())
                 $attributes = null;
@@ -704,7 +717,7 @@ abstract class Document extends CModel {
             $attributes = null;
 
         $relations = $this->getMetaData()->relations;
-        $queue     = array();
+        $queue = array();
 
         foreach ($relations as $name => $relation) {
             /**
@@ -846,13 +859,21 @@ abstract class Document extends CModel {
         if (empty($pk))
             throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!'));
 
-        if ($this->getMetaData()->relations->$relationName instanceof HasManyRelation) {
+        /**
+         * @var \ext\activedocument\Relation
+         */
+        $relation = $this->getMetaData()->relations->$relationName;
+
+        if ($relation instanceof HasManyRelation) {
             if (!isset($this->getObject()->data[$relationName]) || !is_array($this->getObject()->data[$relationName]))
                 $this->getObject()->data[$relationName] = array();
-            if (!in_array($pk, $this->getObject()->data[$relationName]))
+            if ($relation->nested === true) {
+                if (!isset($this->getObject()->data[$relationName][$relationModel->getEncodedPk()]))
+                    $this->getObject()->data[$relationName][$relationModel->getEncodedPk()] = serialize($relationModel->getObject());
+            } elseif (!in_array($pk, $this->getObject()->data[$relationName]))
                 $this->getObject()->data[$relationName][] = $pk;
         } else
-            $this->getObject()->data[$relationName] = $pk;
+            $this->getObject()->data[$relationName] = $relation->nested ? serialize($relationModel->getObject()) : $pk;
     }
 
     /**
@@ -871,11 +892,17 @@ abstract class Document extends CModel {
         if (empty($pk))
             throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!'));
 
-        if ($this->getMetaData()->relations->$relationName instanceof HasManyRelation && is_array($this->getObject()->data[$relationName]))
-            if (($key = array_search($pk, $this->getObject()->data[$relationName])))
+        /**
+         * @var \ext\activedocument\Relation
+         */
+        $relation = $this->getMetaData()->relations->$relationName;
+
+        if ($relation instanceof HasManyRelation && is_array($this->getObject()->data[$relationName])) {
+            $key = $relation->nested ? $relationModel->getEncodedPk() : array_search($pk, $this->getObject()->data[$relationName]);
+            if ($key !== false)
                 unset($this->getObject()->data[$relationName][$key]);
-            else
-                unset($this->getObject()->data[$relationName]);
+        } else
+            unset($this->getObject()->data[$relationName]);
     }
 
     /**
@@ -1092,7 +1119,7 @@ abstract class Document extends CModel {
         if (!empty($keys))
             $keys = array_map(array('self', 'stringify'), $keys);
 
-        $objects       = array();
+        $objects = array();
         $emptyCriteria = new Criteria;
         if ($criteria == $emptyCriteria && !empty($keys)
         )
@@ -1213,7 +1240,7 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Document
      */
     protected function instantiate(Object $object) {
-        $class    = get_class($this);
+        $class = get_class($this);
         $document = new $class(null);
         return $document;
     }
