@@ -21,10 +21,7 @@ class Object extends \ext\activedocument\Object {
      */
     protected function storeInternal() {
         $this->setObjectData($this->data);
-        if (parent::getKey() !== null)
-            $this->_container->getContainerInstance()->objects[$this->getKey()] = $this->_objectInstance;
-        else
-            $this->_container->getContainerInstance()->objects[] = $this->_objectInstance;
+        $this->setKey($this->getKey());
         return true;
     }
 
@@ -45,25 +42,29 @@ class Object extends \ext\activedocument\Object {
         return true;
     }
 
-    public function setKey($key) {
-        if ($key === $this->getKey())
-            return;
+    protected function updateObjectPosition($position = null) {
+        $oldPosition = array_search($this->_objectInstance, (array)$this->_container->getContainerInstance()->objects, true);
+        if ($position !== null && $oldPosition !== false && $position === $oldPosition)
+            return $position;
 
-        if ($key !== null)
-            $this->_container->getContainerInstance()->objects[$key] = $this->_objectInstance;
+        if ($position !== null)
+            $this->_container->getContainerInstance()->objects[$position] = $this->_objectInstance;
         else {
             $this->_container->getContainerInstance()->objects[] = $this->_objectInstance;
-
-            $key = array_search($this->_objectInstance, (array)$this->_container->getContainerInstance()->objects, true);
+            $position = array_search($this->_objectInstance, (array)$this->_container->getContainerInstance()->objects, true);
         }
 
         /**
          * Remove old key entry, if existed
          */
-        if ($this->getKey() !== null)
-            unset($this->_container->getContainerInstance()->objects[$this->getKey()]);
+        if ($oldPosition !== null && $oldPosition !== false)
+            unset($this->_container->getContainerInstance()->objects[$oldPosition]);
 
-        return parent::setKey($key);
+        return $position;
+    }
+
+    public function setKey($key) {
+        return parent::setKey($this->updateObjectPosition($key));
     }
 
     protected function getObjectData() {
