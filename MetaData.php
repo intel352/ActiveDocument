@@ -48,7 +48,7 @@ class MetaData extends CComponent {
         'boolean' => array('bool', 'boolean'),
         'integer' => array('int', 'integer', 'timestamp'),
         'double' => array('float', 'double', 'number'),
-        'string' => array('string', 'date', 'time', 'datetime', 'mixed'),
+        'string' => array('string', 'date', 'time', 'datetime', 'mixed', 'text'),
     );
 
     public function __construct(Document $model) {

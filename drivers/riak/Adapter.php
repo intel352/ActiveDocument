@@ -135,43 +135,43 @@ class Adapter extends \ext\activedocument\Adapter {
              *
              * @todo In Progress- working on implementing sorting and pagination task.
              */
-            if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
-                Yii::trace("Using secondary Indexes", "ext.activedocument.drivers.riak");
-                $result           = array();
-                $resultObjectData = array();
+            //if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
+                //Yii::trace("Using secondary Indexes", "ext.activedocument.drivers.riak");
+                //$result           = array();
+                //$resultObjectData = array();
                 /**
                  * Get container
                  */
-                $container = $this->getContainer($mr->inputs);
+                //$container = $this->getContainer($mr->inputs);
                 /**
                  * Get secondary index class object
                  */
-                $objSecondaryIndex = $this->getSecondaryIndexObject(true);
+                //$objSecondaryIndex = $this->getSecondaryIndexObject(true);
                 /**
                  * Get list of keys using search criteria
                  */
-                $arrKeys          = $objSecondaryIndex->getKeys($criteria);
-                $resultObjectData = array();
+                //$arrKeys          = $objSecondaryIndex->getKeys($criteria);
+                //$resultObjectData = array();
                 /**
                  * Check for empty search keys
                  */
-                if (0 < count($arrKeys['keys'])) {
+                //if (0 < count($arrKeys['keys'])) {
                     /**
                      * Set search criteria for Map/Reduce
                      */
-                    $criteria->inputs = $objSecondaryIndex->prepareInputKeys($arrKeys['keys'], $criteria->container);
+                    //$criteria->inputs = $objSecondaryIndex->prepareInputKeys($arrKeys['keys'], $criteria->container);
                     /**
                      * Update Map/Reduce criteria using list of keys
                      */
-                    unset($mr);
-                    $mr = $this->applySearchFilters($criteria);
-                } else {
+                    //unset($mr);
+                    //$mr = $this->applySearchFilters($criteria);
+                //} else {
                     /**
                      * If key list is empty show no records found
                      */
-                    return array();
-                }
-            }
+                    //return array();
+                //}
+            //}
         }
 
         /**
