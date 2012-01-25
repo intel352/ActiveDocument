@@ -30,7 +30,6 @@ class MetaData extends CComponent {
      * @var \ReflectionClass
      */
     protected $_reflectionClass;
-    protected $_propertySchema = array('propVar' => null, 'access' => null, 'type' => null, 'realType' => null, 'size' => null, 'name' => null, 'description' => null, 'defaultValue' => null, 'class' => null);
     protected $_docPropertyRegex = '/\@(?<propVar>property(?:\-(?<access>read|write))?|var)\s+(?<realType>[^\s]+)(?:\s+(?:\$(?<name>[\w][[:alnum:]][\w\d]*))(?:\s*(?<description>.+))?)?/';
 
     /**
@@ -43,13 +42,6 @@ class MetaData extends CComponent {
      * @var \ArrayObject
      */
     protected $_attributeDefaults;
-
-    protected $_typeMap = array(
-        'boolean' => array('bool', 'boolean'),
-        'integer' => array('int', 'integer', 'timestamp'),
-        'double' => array('float', 'double', 'number'),
-        'string' => array('string', 'date', 'time', 'datetime', 'mixed'),
-    );
 
     public function __construct(Document $model) {
         $this->_model = $model;
@@ -125,19 +117,26 @@ class MetaData extends CComponent {
                     continue;
 
                 if (!array_key_exists($prop->name, $this->_classMeta->properties))
-                    $this->_classMeta->properties->{$prop->name} = new \ArrayObject($this->_propertySchema, \ArrayObject::ARRAY_AS_PROPS);
-
-                $this->parsePhpDoc($prop->getDocComment(), $prop);
+                    $this->_classMeta->properties->{$prop->name} = new schema\Property;
 
                 $this->_classMeta->properties->{$prop->name}->defaultValue = $propDefaults[$prop->name];
                 $this->_classMeta->properties->{$prop->name}->class        = $prop->class;
 
-                $this->extractType($this->_classMeta->properties->{$prop->name});
+                $this->parsePhpDoc($prop->getDocComment(), $prop);
             }
         }
 
+        /**
+         * Add relations (and filters properties that are actually relations)
+         */
         foreach ($this->_model->relations() as $name => $config)
             $this->addRelation($name, $config);
+
+        /**
+         * Initialize all properties
+         */
+        foreach ($this->_classMeta->properties as $property)
+            $property->init();
 
         return $this->_classMeta;
     }
@@ -153,19 +152,31 @@ class MetaData extends CComponent {
         return $this->getClassMeta()->properties;
     }
 
+    /**
+     * Performs overall cleaning and parsing of class & property phpdoc
+     *
+     * @param string                   $phpdoc
+     * @param null|\ReflectionProperty $property
+     */
     protected function parsePhpDoc($phpdoc, \ReflectionProperty $property = null) {
         $phpdoc = $this->cleanPhpDoc($phpdoc);
-        if (empty($phpdoc))
-            return false;
-
-        /**
-         * Parse class meta
-         */
-        if ($property === null)
-            array_walk($phpdoc, array($this, 'parsePhpDocAttributes'));
-        array_walk($phpdoc, array($this, 'parsePhpDocProperties'), $property);
+        if (!empty($phpdoc)) {
+            /**
+             * Parse class meta
+             */
+            if ($property === null)
+                array_walk($phpdoc, array($this, 'parsePhpDocAttributes'));
+            array_walk($phpdoc, array($this, 'parsePhpDocProperties'), $property);
+        }
     }
 
+    /**
+     * Cleans phpdoc string and returns as an array
+     *
+     * @param string $phpdoc
+     *
+     * @return array
+     */
     protected function cleanPhpDoc($phpdoc) {
         /**
          * Split by newlines
@@ -186,78 +197,38 @@ class MetaData extends CComponent {
         return $phpdoc;
     }
 
+    /**
+     * Parses phpdoc text to find general pattern of "attribute value comment"
+     *
+     * @param string $string Line of phpdoc
+     * @param int    $index
+     */
     protected function parsePhpDocAttributes($string, $index) {
-        if (!preg_match($this->_docAttributeRegex, $string, $matches))
-            return false;
-        $matches = array_intersect_key($matches, array('attribute' => null, 'value' => null, 'comment' => null));
+        if (preg_match($this->_docAttributeRegex, $string, $matches)) {
+            $matches = array_intersect_key($matches, array('attribute' => null, 'value' => null, 'comment' => null));
 
-        if (!array_key_exists($matches['attribute'], $this->_classMeta))
-            $this->_classMeta->{$matches['attribute']} = new \ArrayObject($matches, \ArrayObject::ARRAY_AS_PROPS);
-    }
-
-    protected function parsePhpDocProperties($string, $index, \ReflectionProperty $property = null) {
-        if (!preg_match($this->_docPropertyRegex, $string, $matches))
-            return false;
-        $matches = array_merge($this->_propertySchema, array_intersect_key($matches, $this->_propertySchema));
-
-        if (empty($matches['name'])) {
-            if ($property === null)
-                return false;
-            $matches['name'] = $property->name;
+            if (!array_key_exists($matches['attribute'], $this->_classMeta))
+                $this->_classMeta->{$matches['attribute']} = new \ArrayObject($matches, \ArrayObject::ARRAY_AS_PROPS);
         }
-
-        $varName = ($property !== null) ? $property->name : $matches['name'];
-        if (!array_key_exists($varName, $this->_classMeta->properties))
-            $this->_classMeta->properties->$varName = new \ArrayObject($this->_propertySchema, \ArrayObject::ARRAY_AS_PROPS);
-
-        array_walk($matches, function($v, $k, &$prop) {
-            if (!isset($prop->$k) || ($prop->$k === null && $v !== null))
-                $prop->$k = $v;
-        }, $this->_classMeta->properties->$varName);
-
-        $this->extractType($this->_classMeta->properties->$varName);
     }
 
     /**
-     * Sets a property's type, based on it's realType value. Defaults to "string" for unknown or advanced types
+     * Parses phpdoc text to identify class property definitions
      *
-     * @todo Support realType such as "string|int", and size/lengths of values (somehow)
-     * @todo Example supported types: http://www.icosaedro.it/phplint/phpdoc.html#types
-     *
-     * @param \ArrayObject $property
+     * @param string $string Line of phpdoc
+     * @param int $index
+     * @param null|\ReflectionProperty $property
      */
-    protected function extractType($property) {
-        if ($property->realType === null)
-            $property->type = 'string';
+    protected function parsePhpDocProperties($string, $index, \ReflectionProperty $property = null) {
+        if (preg_match($this->_docPropertyRegex, $string, $matches)) {
+            if (empty($matches['name']) && $property !== null)
+                $matches['name'] = $property->name;
 
-        if ($property->type === null)
-            foreach ($this->_typeMap as $type => $map) {
-                if (in_array($property->realType, $map)) {
-                    $property->type = $type;
-                    break;
-                }
-            }
-
-        if ($property->type === null) {
-            /**
-             * Check for array type
-             */
-            if (substr_compare($property->realType, 'array', 0) == 0) {
-                /**
-                 * @todo We're hard-coding arrays as strings for now...
-                 */
-                $property->type = 'string';
-                /**
-                 * @todo Implement advanced array rule matching. Rudimentary start below
-                 * @todo Structure of array could imply a selection would occur, and even perform value type validation
-                 */
-                #$property->type = 'array';
-                #preg_match('/array(\[\]((\[\])*[\w\\\\]+)*)*/', $property->realType, $matches);
-            } else
-                /**
-                 * @todo Support object/resource types specifically, for validation at the least
-                 */
-                $property->type = 'string';
+            if (($varName = ($property !== null) ? $property->name : $matches['name']))
+                if (!array_key_exists($varName, $this->_classMeta->properties))
+                    $this->_classMeta->properties->$varName = new schema\Property($matches);
+                else
+                    $this->_classMeta->properties->$varName->setData($matches);
         }
     }
 
