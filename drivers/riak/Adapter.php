@@ -123,90 +123,7 @@ class Adapter extends \ext\activedocument\Adapter {
      */
     protected function findInternal(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
-        //$criteria->search = Array ( '0' => Array ( "column" => lastName, "keyword" => "L", "like" => 1, "escape" => 1 ) );
-        /**
-         * Check search criteria is specified or not to fetch data using secondary indexes.
-         *
-         * @todo - As Secondary indexs support for only one key search, added second condition
-         */
-        if (!empty($criteria->search)) {
-            /**
-             * Check if useSecondaryIndex flag is set to true and storage engine supports leveldb.
-             *
-             * @todo In Progress- working on implementing sorting and pagination task.
-             */
-            if ($this->_storageInstance->_useSecondaryIndex && $this->_storageInstance->getIsSecondaryIndexSupport()) {
-                Yii::trace("Using secondary Indexes", "ext.activedocument.drivers.riak");
-                $result           = array();
-                $resultObjectData = array();
-                /**
-                 * Get container
-                 */
-                $container = $this->getContainer($mr->inputs);
-                /**
-                 * Get secondary index class object
-                 */
-                $objSecondaryIndex = $this->getSecondaryIndexObject(true);
-                /**
-                 * Get list of keys using search criteria
-                 */
-                $arrKeys          = $objSecondaryIndex->getKeys($criteria);
-                $resultObjectData = array();
-                /**
-                 * Check for empty search keys
-                 */
-                if (0 < count($arrKeys['keys'])) {
-                    /**
-                     * Set search criteria for Map/Reduce
-                     */
-                    $criteria->inputs = $objSecondaryIndex->prepareInputKeys($arrKeys['keys'], $criteria->container);
-                    /**
-                     * Update Map/Reduce criteria using list of keys
-                     */
-                    unset($mr);
-                    $mr = $this->applySearchFilters($criteria);
-                } else {
-                    /**
-                     * If key list is empty show no records found
-                     */
-                    return array();
-                }
-            }
-        }
 
-        /**
-         * If no phases are to be run, skip m/r and perform async object fetch
-         *
-         * @todo With a small data subset, performance is roughly equal to m/r, need to test large set of data
-         *
-         * @todo Disabling, as this doesn't account for sorting & pagination
-         */
-        if (empty($mr->phases)) {
-            $result           = array();
-            $resultObjectData = array();
-            $container        = $this->getContainer($mr->inputs);
-            if ($mr->inputMode == 'bucket') {
-                $result           = $container->getObjects($container->getKeys());
-                $resultObjectData = $this->getObjectsData($result);
-                $objects          = array_map(array($this, 'populateObject'), $resultObjectData);
-                /**
-                 * @todo Disable this functionality because of it is not working for pagination and sorting.
-                 */
-                //return $objects;
-            } else {
-                $result           = $container->getObjects(array_map(function($input) use(&$container) {
-                    if (empty($container))
-                        $container = $this->getContainer($input['container']);
-                    return $input['key'];
-                }, $criteria->inputs));
-                $resultObjectData = $this->getObjectsData($result);
-                $objects          = array_map(array($this, 'populateObject'), $resultObjectData);
-                /**
-                 * @todo Disable this functionality because of it is not working for pagination and sorting.
-                 */
-                //return $objects;
-            }
-        }
         $mr->map('function(value){return [value];}');
 
         /**
@@ -352,9 +269,11 @@ class Adapter extends \ext\activedocument\Adapter {
                 function(value){
                     if(!value["not_found"]) {
                         var object = Riak.mapValuesJson(value)[0];
-                        var val = object["' . $column['column'] . '"].toLowerCase();
-                        if(' . ($column['like'] ? '' : '!') . '(val.match(/' . strtolower($column['keyword']) . '/))) {
-                            return [[value.bucket,value.key]];
+                        if(object.hasOwnProperty("' . $column['column'] . '")) {
+                            var val = object["' . $column['column'] . '"].toLowerCase();
+                            if(' . ($column['like'] ? '' : '!') . '(val.match(/' . strtolower($column['keyword']) . '/))) {
+                                return [[value.bucket,value.key]];
+                            }
                         }
                     }
                     return [];
@@ -368,8 +287,10 @@ class Adapter extends \ext\activedocument\Adapter {
                 function(value){
                     if(!value.not_found) {
                         var object = Riak.mapValuesJson(value)[0];
-                        if(object["' . $column['column'] . '"] ' . $column['operator'] . ' "' . $column['value'] . '") {
-                            return [[value.bucket,value.key]];
+                        if(object.hasOwnProperty("' . $column['column'] . '")) {
+                            if(object["' . $column['column'] . '"] ' . $column['operator'] . ' "' . $column['value'] . '") {
+                                return [[value.bucket,value.key]];
+                            }
                         }
                     }
                     return [];
