@@ -304,7 +304,7 @@ abstract class Document extends CModel {
             if ($relation instanceof Relation && $relation->nested === true && $params === array()) {
                 Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
                 if ($relation instanceof HasManyRelation)
-                    $this->_related[$name] = Document::model($relation->className)->populateDocuments(array_map('unserialize',$data[$name]));
+                    $this->_related[$name] = Document::model($relation->className)->populateDocuments(array_map('unserialize', $data[$name]));
                 else
                     $this->_related[$name] = Document::model($relation->className)->populateDocument(unserialize($data[$name]));
             } else {
@@ -459,7 +459,7 @@ abstract class Document extends CModel {
             $isNull = true;
             $return = array();
             foreach ($pk as $pkField) {
-                $isNull = & is_null($this->{$pkField}) || $this->{$pkField} === '';
+                $isNull = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
                 $return[$pkField] = is_null($this->{$pkField}) ? '' : $this->{$pkField};
             }
 
@@ -1121,8 +1121,7 @@ abstract class Document extends CModel {
 
         $objects = array();
         $emptyCriteria = new Criteria;
-        if ($criteria == $emptyCriteria && !empty($keys)
-        )
+        if ($criteria == $emptyCriteria && !empty($keys))
             /**
              * @todo Need to implement getObjects to speed up this process
              * $objects = $this->getContainer()->getObjects($keys);

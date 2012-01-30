@@ -61,7 +61,7 @@ class Property extends CComponent {
         'boolean' => array('bool', 'boolean'),
         'integer' => array('int', 'integer', 'timestamp'),
         'double' => array('float', 'double', 'number'),
-        'string' => array('string', 'date', 'time', 'datetime', 'mixed'),
+        'string' => array('string', 'text', 'date', 'time', 'datetime', 'mixed'),
     );
 
     public function __construct(array $data = array()) {
