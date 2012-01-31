@@ -520,6 +520,14 @@ abstract class Document extends CModel {
       return $this;
       } */
 
+    /**
+     * @todo Implement support for indexing
+     * @return array
+     */
+    public function indexes() {
+        return array();
+    }
+
     public function relations() {
         return array();
     }
