@@ -31,10 +31,10 @@ Yii::import('ext.activedocument.Relation', true);
 abstract class Document extends CModel {
 
     const BELONGS_TO = '\ext\activedocument\BelongsToRelation';
-    const HAS_ONE = '\ext\activedocument\HasOneRelation';
-    const HAS_MANY = '\ext\activedocument\HasManyRelation';
-    const MANY_MANY = '\ext\activedocument\ManyManyRelation';
-    const STAT = '\ext\activedocument\StatRelation';
+    const HAS_ONE    = '\ext\activedocument\HasOneRelation';
+    const HAS_MANY   = '\ext\activedocument\HasManyRelation';
+    const MANY_MANY  = '\ext\activedocument\ManyManyRelation';
+    const STAT       = '\ext\activedocument\StatRelation';
 
     /**
      * Override with component connection name, if not 'conn'
@@ -83,7 +83,9 @@ abstract class Document extends CModel {
 
     /**
      * @static
+     *
      * @param string $className optional
+     *
      * @return \ext\activedocument\Document
      */
     public static function model($className = null) {
@@ -92,7 +94,7 @@ abstract class Document extends CModel {
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
-            $document = self::$_models[$className] = new $className(null);
+            $document      = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
             return $document;
@@ -258,6 +260,70 @@ abstract class Document extends CModel {
     }
 
     /**
+     * Returns arrays of indexed keys, only applicable to HasMany or ManyMany relations
+     *
+     * @param string $name The relation name (see {@link relations})
+     * @param string|array $index Name of the index, or array of index names
+     *
+     * @return array[]array[]string
+     */
+    public function getRelatedKeysByIndexName($name, $index) {
+        $index = array_combine((array) $index, (array) $index);
+        $object = $this->getObject();
+        return array_map(function($index)use($name, $object){
+            return isset($object->data[$name.'_'.$index])?$object->data[$name.'_'.$index]:array();
+        }, $index);
+    }
+
+    /**
+     * Return array of keys, filtered by specified index values, only applicable to HasMany or ManyMany relations
+     *
+     * @param string $name The relation name (see {@link relations})
+     * @param array $indexes Array of 'indexName'=>'searchValue' to search by
+     * @param array $keys Array of keys to additionally filter by
+     *
+     * @return array
+     */
+    public function getRelatedKeysByIndex($name, array $indexes, array $keys = array()) {
+        $pks = array();
+        $object = $this->getObject();
+        $class = get_class($this);
+        array_walk($indexes, function($indexValue, $index)use($name, $object, &$pks, $class){
+            $indexName = $name.'_'.$index;
+            if($indexValue === '' || $indexValue === null)
+                return;
+            $indexValue = $class::stringify($indexValue);
+            if(!isset($object->data[$indexName][$indexValue]) || $object->data[$indexName][$indexValue]===array())
+                return;
+            $pks[] = $object->data[$indexName][$indexValue];
+        });
+        if($pks===array())
+            return array();
+        if ($keys!==array())
+            array_push($pks, $keys);
+        return count($pks)>1 ? call_user_func_array('array_intersect', $pks) : array_shift($pks);
+    }
+
+    /**
+     * Returns related records filtered by indexed values, only applicable to HasMany or ManyMany relations
+     *
+     * @param string $name The relation name (see {@link relations})
+     * @param array $indexes Array of 'indexName'=>'searchValue' to search by
+     * @param bool $refresh Whether to force reload objects from db
+     * @param array $params Additional parameters to customize query
+     * @param array $keys Array of keys to additionally filter by
+     *
+     * @return array
+     */
+    public function &getRelatedByIndex($name, array $indexes, $refresh = false, array $params = array(), array $keys = array()) {
+        $pks = $this->getRelatedKeysByIndex($name, $indexes, $keys);
+        if ($pks === array())
+            return array();
+        Yii::trace('Requesting related records for relation ' . get_class($this) . '.'.$name.', filtered by '.\CVarDumper::dumpAsString($indexes), 'ext.activedocument.document.getRelatedByIndex');
+        return $this->getRelated($name, $refresh, $params, $pks);
+    }
+
+    /**
      * Returns the related record(s).
      * This method will return the related record(s) of the current record.
      * If the relation is HAS_ONE or BELONGS_TO, it will return a single object
@@ -268,20 +334,26 @@ abstract class Document extends CModel {
      * @param string  $name    the relation name (see {@link relations})
      * @param boolean $refresh whether to reload the related objects from database. Defaults to false.
      * @param array   $params  additional parameters that customize the query conditions as specified in the relation declaration.
+     * @param array   $keys    Array of encoded primary keys to filter by on HasMany or ManyMany relations
      *
      * @return mixed the related object(s).
      * @throws Exception if the relation is not specified in {@link relations}.
      */
-    public function &getRelated($name, $refresh = false, array $params = array()) {
+    public function &getRelated($name, $refresh = false, array $params = array(), array $keys = array()) {
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
-            return $this->_related[$name];
+            if ($keys!==array() && is_array($this->_related[$name])) {
+                return array_filter($this->_related[$name], function(Document $document)use($keys){
+                    return in_array($document->getEncodedPk(), $keys);
+                });
+            }else{
+                return $this->_related[$name];
+            }
 
         $md = $this->getMetaData();
-
         if (!isset($md->relations[$name]))
             throw new Exception(Yii::t('yii', '{class} does not have relation "{name}".', array('{class}' => get_class($this), '{name}' => $name)));
 
-        Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
+        Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.document.getRelated');
         /**
          * @var \ext\activedocument\BaseRelation
          */
@@ -292,7 +364,7 @@ abstract class Document extends CModel {
             return $_r;
         }
 
-        if ($params !== array()) { // dynamic query
+        if ($params !== array() || ($relation instanceof HasManyRelation && $keys !== array())) { // dynamic query
             $exists = isset($this->_related[$name]) || array_key_exists($name, $this->_related);
             if ($exists)
                 $save = $this->_related[$name];
@@ -302,19 +374,29 @@ abstract class Document extends CModel {
         $data = $this->getObject()->data;
         if (isset($data[$name])) {
             if ($relation instanceof Relation && $relation->nested === true && $params === array()) {
-                Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.' . get_class($this));
-                if ($relation instanceof HasManyRelation)
-                    $this->_related[$name] = Document::model($relation->className)->populateDocuments(array_map('unserialize', $data[$name]));
-                else
-                    $this->_related[$name] = Document::model($relation->className)->populateDocument(unserialize($data[$name]));
-            } else {
-                if ($relation instanceof HasManyRelation)
+                Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.document.getRelated');
+                if ($relation instanceof HasManyRelation) {
                     $this->_related[$name] = Document::model($relation->className)
-                        ->findAllByPk($data[$name], null, $params);
+                        ->populateDocuments(array_map('unserialize', $data[$name]));
+                    if ($keys!==array())
+                        $this->_related[$name] = array_intersect_key($this->_related[$name], array_flip($keys));
+                } else
+                    $this->_related[$name] = Document::model($relation->className)
+                        ->populateDocument(unserialize($data[$name]));
+            } else {
+                if ($relation instanceof HasManyRelation) {
+                    $pks = $data[$name];
+                    if ($relation->nested === true)
+                        $pks = array_keys($pks);
+                    if ($keys !== array())
+                        $pks = array_intersect($pks, $keys);
+                    $this->_related[$name] = Document::model($relation->className)
+                        ->findAllByPk($pks, null, $params);
                 /* else if ($relation instanceof StatRelation)
              $this->_related[$name] = $relation->defaultValue; */
-                else
-                    $this->_related[$name] = Document::model($relation->className)->findByPk($data[$name], null, $params);
+                } else
+                    $this->_related[$name] = Document::model($relation->className)
+                        ->findByPk($data[$name], null, $params);
             }
         }
 
@@ -327,7 +409,7 @@ abstract class Document extends CModel {
                 $this->_related[$name] = null;
         }
 
-        if ($params !== array()) {
+        if ($params !== array() || ($relation instanceof HasManyRelation && $keys !== array())) {
             $results = $this->_related[$name];
             if ($exists)
                 $this->_related[$name] = $save;
@@ -384,6 +466,10 @@ abstract class Document extends CModel {
             return $this->$name;
         else if (isset($this->_attributes[$name]))
             return $this->_attributes[$name];
+        else if (isset($this->getMetaData()->attributes->$name)) {
+            $return = null;
+            return $return;
+        }
     }
 
     public function setAttribute($name, $value) {
@@ -422,9 +508,9 @@ abstract class Document extends CModel {
         Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.' . get_class($this));
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
             $this->_related = array();
-            $object = $this->getObject();
+            $object         = $this->getObject();
             foreach ($this->getMetaData()->attributes as $name => $attr) {
-                if (property_exists($this, $name))
+                if (property_exists($this, $name) && isset($object->data[$name]))
                     $this->$name = $object->data[$name];
             }
             return true;
@@ -459,7 +545,7 @@ abstract class Document extends CModel {
             $isNull = true;
             $return = array();
             foreach ($pk as $pkField) {
-                $isNull = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
+                $isNull           = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
                 $return[$pkField] = is_null($this->{$pkField}) ? '' : $this->{$pkField};
             }
 
@@ -501,7 +587,7 @@ abstract class Document extends CModel {
      * Self-recursive function (for arrays)
      * Takes mixed variable types
      * Returns objects/arrays as json
-     * Casts any other type to string
+     * Casts any other type to string to ensure type consistency
      *
      * @param mixed $var
      *
@@ -521,7 +607,7 @@ abstract class Document extends CModel {
       } */
 
     /**
-     * @todo Implement support for indexing
+     * @todo Implement support for indexing at bucket level
      * @return array
      */
     public function indexes() {
@@ -661,12 +747,12 @@ abstract class Document extends CModel {
     public function validate($data = null, $clearErrors = true) {
         if ($data === null) {
             $attributes = null;
-            $newData = array();
+            $newData    = array();
         } else {
             if (is_string($data))
                 $data = array($data);
             $attributeNames = $this->attributeNames();
-            $attributes = array_intersect($data, $attributeNames);
+            $attributes     = array_intersect($data, $attributeNames);
 
             if ($attributes === array())
                 $attributes = null;
@@ -725,7 +811,7 @@ abstract class Document extends CModel {
             $attributes = null;
 
         $relations = $this->getMetaData()->relations;
-        $queue = array();
+        $queue     = array();
 
         foreach ($relations as $name => $relation) {
             /**
@@ -873,6 +959,23 @@ abstract class Document extends CModel {
         $relation = $this->getMetaData()->relations->$relationName;
 
         if ($relation instanceof HasManyRelation) {
+            /**
+             * Manages relation indexes stored within the model
+             */
+            if ($relation->autoIndices !== array()) {
+                foreach($relation->autoIndices as $index) {
+                    $indexName = $relationName.'_'.$index;
+                    $indexValue = $relationModel->getAttribute($index);
+                    if($indexValue === '' || $indexValue === null)
+                        continue;
+                    $indexValue = self::stringify($indexValue);
+                    if (!isset($this->getObject()->data[$indexName]) || !is_array($this->getObject()->data[$indexName]))
+                        $this->getObject()->data[$indexName] = array();
+                    if (!isset($this->getObject()->data[$indexName][$indexValue]) || !is_array($this->getObject()->data[$indexName][$indexValue]))
+                        $this->getObject()->data[$indexName][$indexValue] = array();
+                    $this->getObject()->data[$indexName][$indexValue][] = $pk;
+                }
+            }
             if (!isset($this->getObject()->data[$relationName]) || !is_array($this->getObject()->data[$relationName]))
                 $this->getObject()->data[$relationName] = array();
             if ($relation->nested === true) {
@@ -1127,9 +1230,9 @@ abstract class Document extends CModel {
         if (!empty($keys))
             $keys = array_map(array('self', 'stringify'), $keys);
 
-        $objects = array();
+        $objects       = array();
         $emptyCriteria = new Criteria;
-        if ($criteria == $emptyCriteria && !empty($keys))
+        if ($criteria == $emptyCriteria && !empty($keys)) {
             /**
              * @todo Need to implement getObjects to speed up this process
              * $objects = $this->getContainer()->getObjects($keys);
@@ -1142,7 +1245,7 @@ abstract class Document extends CModel {
                 if (!empty($obj->objectData))
                     $objects[] = $obj;
             }
-        else {
+        } else {
             if (!$all)
                 $criteria->limit = 1;
             if (!empty($keys))
@@ -1247,7 +1350,7 @@ abstract class Document extends CModel {
      * @return \ext\activedocument\Document
      */
     protected function instantiate(Object $object) {
-        $class = get_class($this);
+        $class    = get_class($this);
         $document = new $class(null);
         return $document;
     }

@@ -175,9 +175,6 @@ abstract class Relation extends BaseRelation {
 
         parent::mergeWith($criteria);
 
-        if (isset($criteria['nested']))
-            $this->nested = $criteria['nested'];
-
         if (isset($criteria['with']))
             $this->with = $criteria['with'];
 
@@ -242,6 +239,11 @@ class HasManyRelation extends Relation {
      * Defaults to null, meaning don't use any bridge.
      */
     public $through;
+
+    /**
+     * @var array Array of columns that this relation should be indexed by
+     */
+    public $autoIndices = array();
 
     /**
      * Merges this relation with a criteria specified dynamically.
