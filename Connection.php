@@ -109,20 +109,12 @@ class Connection extends CApplicationComponent {
             throw new Exception(Yii::t('yii', 'Connection does not support {driver} storage adapter.', array('{driver}' => $this->driver)));
     }
 
-    public function createCommand($query = null) {
-        $this->setActive(true);
-        return new CDbCommand($this, $query);
-    }
-
     /**
      * @return \ext\activedocument\Adapter
      */
     public function getAdapter() {
+        $this->setActive(true);
         return $this->_adapter;
-    }
-
-    public function getCommandBuilder() {
-        return $this->getAdapter()->getCommandBuilder();
     }
 
     /* public function getColumnCase() {
@@ -181,11 +173,23 @@ class Connection extends CApplicationComponent {
       return $this->getAttribute(ACO::ATTR_TIMEOUT);
       } */
 
+    /**
+     * @todo Needs refactoring
+     *
+     * @param $name
+     * @return mixed
+     */
     public function getAttribute($name) {
         $this->setActive(true);
         return $this->_adapter->getAttribute($name);
     }
 
+    /**
+     * @todo Needs refactoring
+     *
+     * @param $name
+     * @param $value
+     */
     public function setAttribute($name, $value) {
         if ($this->_adapter instanceof Adapter)
             $this->_adapter->setAttribute($name, $value);
@@ -193,10 +197,20 @@ class Connection extends CApplicationComponent {
             $this->_attributes[$name] = $value;
     }
 
+    /**
+     * @todo Needs refactoring
+     *
+     * @return array
+     */
     public function getAttributes() {
         return $this->_attributes;
     }
 
+    /**
+     * @todo Needs refactoring
+     *
+     * @param $values
+     */
     public function setAttributes($values) {
         foreach ($values as $name => $value)
             $this->_attributes[$name] = $value;

@@ -461,15 +461,11 @@ abstract class Document extends CModel {
         return isset($this->getMetaData()->attributes->$name);
     }
 
-    public function &getAttribute($name) {
+    public function getAttribute($name) {
         if (property_exists($this, $name))
             return $this->$name;
         else if (isset($this->_attributes[$name]))
             return $this->_attributes[$name];
-        else if (isset($this->getMetaData()->attributes->$name)) {
-            $return = null;
-            return $return;
-        }
     }
 
     public function setAttribute($name, $value) {
@@ -669,7 +665,7 @@ abstract class Document extends CModel {
         if (empty(static::$connName))
             throw new Exception(Yii::t('yii', 'Active Document requires that Document::$connName not be empty.'));
 
-        if (array_key_exists(static::$connName, self::$connections) && self::$connections[static::$connName] !== null)
+        if (array_key_exists(static::$connName, self::$connections) && self::$connections[static::$connName] instanceof Connection)
             return self::$connections[static::$connName];
         else {
             self::$connections[static::$connName] = Yii::app()->getComponent(static::$connName);
