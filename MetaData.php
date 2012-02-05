@@ -119,6 +119,7 @@ class MetaData extends CComponent {
                 if (!array_key_exists($prop->name, $this->_classMeta->properties))
                     $this->_classMeta->properties->{$prop->name} = new schema\Property;
 
+                $this->_classMeta->properties->{$prop->name}->name         = $prop->name;
                 $this->_classMeta->properties->{$prop->name}->defaultValue = $propDefaults[$prop->name];
                 $this->_classMeta->properties->{$prop->name}->class        = $prop->class;
 

@@ -59,9 +59,9 @@ class Property extends CComponent {
      */
     protected $_typeMap = array(
         'boolean' => array('bool', 'boolean'),
-        'integer' => array('int', 'integer', 'timestamp'),
+        'integer' => array('int', 'integer', 'timestamp', 'date', 'time', 'datetime'),
         'double' => array('float', 'double', 'number'),
-        'string' => array('string', 'text', 'date', 'time', 'datetime', 'mixed'),
+        'string' => array('string', 'text', 'mixed'),
     );
 
     public function __construct(array $data = array()) {
