@@ -65,7 +65,7 @@ class Sort extends CSort {
      * <li>When {@link attributes} is an empty array, if the name refers to an attribute of {@link modelClass},
      * then the name is returned back.</li>
      * <li>When {@link attributes} is not empty, if the name refers to an attribute declared in {@link attributes},
-     * then the corresponding virtual attribute definition is returned. Starting from version 1.1.3, if {@link attributes}
+     * then the corresponding virtual attribute definition is returned. If {@link attributes}
      * contains a star ('*') element, the name will also be used to match against all model attributes.</li>
      * <li>In all other cases, false is returned, meaning the name does not refer to a valid attribute.</li>
      * </ul>

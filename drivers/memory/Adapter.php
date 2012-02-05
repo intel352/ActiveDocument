@@ -40,7 +40,7 @@ class Adapter extends \ext\activedocument\Adapter {
         if (!empty($criteria->order)) {
             $orderBy = explode(',', $criteria->order);
             foreach ($orderBy as $order) {
-                preg_match('/(?:(\w+)\.)?(\w+)(?:\s+(ASC|DESC))?/', trim($order), $matches);
+                preg_match('/(?:([\w\\\]+)\.)?(\w+)(?:\s+(ASC|DESC))?/', trim($order), $matches);
                 $field = $matches[2];
                 $desc = (isset($matches[3]) && strcasecmp($matches[3], 'desc') === 0);
                 usort($values, function($a, $b) use($field, $desc) {

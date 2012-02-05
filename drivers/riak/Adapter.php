@@ -21,11 +21,6 @@ Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.rii
 class Adapter extends \ext\activedocument\Adapter {
 
     /**
-     * @var drivers\riak\Adapter Instance of drivers\riak\Adapter class
-     */
-    public static $_objInstance;
-
-    /**
      * @param array|null $attributes optional
      *
      * @return \riiak\Riiak
@@ -55,15 +50,6 @@ class Adapter extends \ext\activedocument\Adapter {
      */
     public function getMapReduce($reset = false) {
         return $this->_storageInstance->getMapReduce($reset);
-    }
-
-    /**
-     * @param bool $reset
-     *
-     * @return \riiak\SecondaryIndexes
-     */
-    public function getSecondaryIndexObject($reset = false) {
-        return $this->_storageInstance->getSecondaryIndexObject($reset);
     }
 
     /**
@@ -132,7 +118,7 @@ class Adapter extends \ext\activedocument\Adapter {
         if (!empty($criteria->order)) {
             $orderBy = explode(',', $criteria->order);
             foreach ($orderBy as $order) {
-                preg_match('/(?:(\w+)\.)?(\w+)(?:\s+(ASC|DESC))?/', trim($order), $matches);
+                preg_match('/(?:([\w\\\]+)\.)?(\w+)(?:\s+(ASC|DESC))?/', trim($order), $matches);
                 $field = $matches[2];
                 $desc  = (isset($matches[3]) && strcasecmp($matches[3], 'desc') === 0);
                 $mr->reduce('Riak.reduceSort', array('arg' => '
