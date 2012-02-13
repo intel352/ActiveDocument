@@ -318,7 +318,7 @@ abstract class Document extends CModel {
     public function &getRelatedByIndex($name, array $indexes, $refresh = false, array $params = array(), array $keys = array()) {
         $pks = $this->getRelatedKeysByIndex($name, $indexes, $keys);
         if ($pks === array())
-            return array();
+            return $pks;
         Yii::trace('Requesting related records for relation ' . get_class($this) . '.'.$name.', filtered by '.\CVarDumper::dumpAsString($indexes), 'ext.activedocument.document.getRelatedByIndex');
         return $this->getRelated($name, $refresh, $params, $pks);
     }
