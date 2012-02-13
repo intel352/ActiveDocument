@@ -200,39 +200,10 @@ class Adapter extends \ext\activedocument\Adapter {
         if (!empty($criteria->container) && (!$mode || $mode == 'bucket'))
             $mr->addBucket($criteria->container);
 
-        /**
-         * Filter non-existent results
-         */
-        /* $mr->map('
-          function(value){
-          if(!value["not_found"]) {
-          return [[value.bucket,value.key]];
-          } else {
-          return [];
-          }
-          }
-          '); */
-
         if (!empty($criteria->phases))
             foreach ($criteria->phases as $phase)
                 $mr->addPhase($phase['phase'], $phase['function'], $phase['args']);
 
-        /*
-          if (!empty($criteria->params)) {
-          foreach ($criteria->params as key=>value) {
-          $mr->map('
-          function(value){
-          if(!value["not_found"]) {
-          var object = Riak.mapValuesJson(value)[0];
-          if(' . $key . '=='.$value.'/))) {
-          return [[value.bucket,value.key]];
-          }
-          }
-          return [];
-          }
-          ');
-          }
-         */
         if (0 < count($criteria->inputs)) {
             $mr->map('
                 function(value){
@@ -250,7 +221,8 @@ class Adapter extends \ext\activedocument\Adapter {
                      * @todo preg_quote may not be appropriate for js regex
                      * @todo lowercasing the strings may not be a good idea...
                      */
-                    $column['keyword'] = !$column['escape'] ? : preg_quote($column['keyword'], '/');
+                    if($column['escape'])
+                        $column['keyword'] = preg_quote($column['keyword'], '/');
                     $mr->map('
                 function(value){
                     if(!value["not_found"]) {
@@ -286,7 +258,7 @@ class Adapter extends \ext\activedocument\Adapter {
         }
 
         /**
-         * @todo Implement column conditions
+         * @todo Implement array (in|not in) conditions
          */
         if (!empty($criteria->array))
             ;

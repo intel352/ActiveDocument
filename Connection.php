@@ -25,6 +25,8 @@ class Connection extends CApplicationComponent {
     public $driverMap = array(
         'memory' => '\ext\activedocument\drivers\memory\Adapter',
         'riak' => '\ext\activedocument\drivers\riak\Adapter',
+        'mongo' => '\ext\activedocument\drivers\mongo\Adapter',
+        #'redis' => '\ext\activedocument\drivers\redis\Adapter',
     );
     protected $_attributes = array();
     private $_active = false;
