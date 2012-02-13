@@ -947,7 +947,8 @@ abstract class Document extends CModel {
     public function appendRelation(Document $relationModel, $relationName) {
         $pk = $relationModel->getPrimaryKey();
         if (empty($pk))
-            throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!'));
+            throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!').
+                PHP_EOL.'Model: '.\CVarDumper::dumpAsString($relationModel->getAttributes()));
 
         /**
          * @var \ext\activedocument\Relation

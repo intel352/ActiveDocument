@@ -172,7 +172,7 @@ class Adapter extends \ext\activedocument\Adapter {
             }
 
         /**
-         * @todo Implement column conditions
+         * @todo Implement array (in|not in) conditions
          */
         if (!empty($criteria->array))
             ;

@@ -4,9 +4,6 @@ namespace ext\activedocument\drivers\memory;
 
 /**
  * Object for Memory driver
- *
- * @version $Version$
- * @author  $Author$
  */
 class Object extends \ext\activedocument\Object {
 

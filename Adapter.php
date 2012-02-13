@@ -56,26 +56,26 @@ abstract class Adapter extends CComponent {
     }
 
     public function __get($name) {
-        if (property_exists($this->_storageInstance, $name) || $this->_storageInstance->canGetProperty($name))
+        if (property_exists($this->_storageInstance, $name) || ($this->_storageInstance instanceof CComponent && $this->_storageInstance->canGetProperty($name)))
             return $this->_storageInstance->$name;
         return parent::__get($name);
     }
 
     public function __set($name, $value) {
-        if (property_exists($this->_storageInstance, $name) || $this->_storageInstance->canSetProperty($name))
+        if (property_exists($this->_storageInstance, $name) || ($this->_storageInstance instanceof CComponent && $this->_storageInstance->canSetProperty($name)))
             $this->_storageInstance->$name = $value;
         else
             return parent::__set($name, $value);
     }
 
     public function __isset($name) {
-        if (property_exists($this->_storageInstance, $name) || $this->_storageInstance->canGetProperty($name))
+        if (property_exists($this->_storageInstance, $name) || ($this->_storageInstance instanceof CComponent && $this->_storageInstance->canGetProperty($name)))
             return $this->_storageInstance->$name !== null;
         return parent::__isset($name);
     }
 
     public function __unset($name) {
-        if (property_exists($this->_storageInstance, $name) || $this->_storageInstance->canSetProperty($name))
+        if (property_exists($this->_storageInstance, $name) || ($this->_storageInstance instanceof CComponent && $this->_storageInstance->canSetProperty($name)))
             return $this->_storageInstance->$name = null;
         return parent::__unset($name);
     }
@@ -107,7 +107,7 @@ abstract class Adapter extends CComponent {
         if (isset($this->_containers[$name]))
             return $this->_containers[$name];
         else {
-            if ($this->_connection->containerPrefix !== null && strpos($name, '{{') !== false)
+            if (strpos($name, '{{') !== false)
                 $realName = preg_replace('/\{\{(.*?)\}\}/', $this->_connection->containerPrefix . '$1', $name);
             else
                 $realName = $name;
