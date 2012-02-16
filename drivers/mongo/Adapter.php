@@ -23,7 +23,7 @@ class Adapter extends \ext\activedocument\Adapter {
      */
     protected $mongoConnection;
     /**
-     * @var string Server connection string, defaults to php.ini settings. If connection options are specified, but server is empty, a server will be specified as 'mongodb://localhost:27017'
+     * @var string Server connection string, defaults to php.ini settings.
      * @link http://www.php.net/manual/en/mongo.construct.php
      */
     public $server;
@@ -41,7 +41,7 @@ class Adapter extends \ext\activedocument\Adapter {
         if (!($this->mongoConnection instanceof \Mongo)) {
             if ($attributes !== null && $attributes !== array()) {
                 if ($this->server === null)
-                    $this->server = 'mongodb://localhost:27017';
+                    $this->server = 'mongodb://'.ini_get('mongo.default_host').':'.ini_get('mongo.default_port');
                 $this->mongoConnection = new \Mongo($this->server, $attributes);
             } else {
                 $this->mongoConnection = new \Mongo;

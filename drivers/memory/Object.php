@@ -8,7 +8,7 @@ namespace ext\activedocument\drivers\memory;
 class Object extends \ext\activedocument\Object {
 
     protected function loadObjectInstance($new = true) {
-        if ($this->getKey() !== null && !$new)
+        if ($this->getKey() !== null && !$new && isset($this->_container->getContainerInstance()->objects[$this->getKey()]))
             return $this->_container->getContainerInstance()->objects[$this->getKey()];
         return new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS);
     }

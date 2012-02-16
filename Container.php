@@ -58,10 +58,12 @@ abstract class Container extends CComponent {
 
     /**
      * @abstract
-     * @param string|null $key optional
+     * @param string $key Optional Key to initialize object. Default null
+     * @param mixed $data Optional Data to initialize object. Default null
+     * @param bool $new Optional Whether object is new. Default false
      * @return \ext\activedocument\Object
      */
-    abstract public function getObject($key=null);
+    abstract public function getObject($key = null, $data = null, $new = false);
 
     /**
      * @param \ext\activedocument\Adapter $adapter

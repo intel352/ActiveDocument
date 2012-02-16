@@ -376,13 +376,16 @@ abstract class Document extends CModel {
             if ($relation instanceof Relation && $relation->nested === true && $params === array()) {
                 Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.document.getRelated');
                 if ($relation instanceof HasManyRelation) {
-                    $this->_related[$name] = Document::model($relation->className)
-                        ->populateDocuments(array_map('unserialize', $data[$name]));
                     if ($keys!==array())
-                        $this->_related[$name] = array_intersect_key($this->_related[$name], array_flip($keys));
+                        $data[$name] = array_intersect_key($data[$name], array_flip($keys));
+                    array_walk($data[$name], function(&$rel, $key)use($relation){
+                        $rel = Document::model($relation->className)->getContainer()->getObject($key, $rel, true);
+                    });
+                    $this->_related[$name] = Document::model($relation->className)->populateDocuments($data[$name]);
                 } else
-                    $this->_related[$name] = Document::model($relation->className)
-                        ->populateDocument(unserialize($data[$name]));
+                    $this->_related[$name] = Document::model($relation->className)->populateDocument(
+                        Document::model($relation->className)->getContainer()->getObject(null, $data[$name], true)
+                    );
             } else {
                 if ($relation instanceof HasManyRelation) {
                     $pks = $data[$name];
@@ -977,11 +980,11 @@ abstract class Document extends CModel {
                 $this->getObject()->data[$relationName] = array();
             if ($relation->nested === true) {
                 if (!isset($this->getObject()->data[$relationName][$relationModel->getEncodedPk()]))
-                    $this->getObject()->data[$relationName][$relationModel->getEncodedPk()] = serialize($relationModel->getObject());
+                    $this->getObject()->data[$relationName][$relationModel->getEncodedPk()] = $relationModel->getObject()->data;
             } elseif (!in_array($pk, $this->getObject()->data[$relationName]))
                 $this->getObject()->data[$relationName][] = $pk;
         } else
-            $this->getObject()->data[$relationName] = $relation->nested ? serialize($relationModel->getObject()) : $pk;
+            $this->getObject()->data[$relationName] = $relation->nested ? $relationModel->getObject()->data : $pk;
     }
 
     /**
