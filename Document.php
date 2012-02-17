@@ -474,9 +474,14 @@ abstract class Document extends CModel {
     public function setAttribute($name, $value) {
         if (property_exists($this, $name))
             $this->$name = $value;
-        else if (isset($this->getMetaData()->attributes->$name))
+        else if (isset($this->getMetaData()->attributes->$name)) {
+            /**
+             * Typecast the value
+             */
+            if($value!==null && $value!=='' && ($type=$this->getMetaData()->attributes->$name->type))
+                settype($value, $type);
             $this->_attributes[$name] = $value;
-        else
+        } else
             return false;
         return true;
     }

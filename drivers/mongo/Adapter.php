@@ -151,18 +151,22 @@ class Adapter extends \ext\activedocument\Adapter {
 
         if (!empty($criteria->search)) {
             $k = '$regex';
+            $o = '$options';
             foreach ($criteria->search as $column) {
                 if (!isset($query[$column['column']]))
                     $query[$column['column']] = array();
 
                 if (!isset($query[$column['column']][$k]))
                     $query[$column['column']][$k] = array();
+                if (!isset($query[$column['column']][$o]))
+                    $query[$column['column']][$o] = array();
 
                 if ($column['escape'])
                     $column['keyword'] = preg_quote($column['keyword'], '/');
                 if (!$column['like'])
                     $column['keyword'] = '(?!' . $column['keyword'] . ')';
-                $query[$column['column']][$k][] = '/' . $column['keyword'] . '/';
+                $query[$column['column']][$k][] = $column['keyword'];
+                $query[$column['column']][$o][] = 'i';
             }
         }
 
@@ -228,23 +232,35 @@ class Adapter extends \ext\activedocument\Adapter {
             }
         }
 
+        /**
+         * Remove empty entries
+         */
         $query = array_filter($query);
-        array_walk($query, function(&$col, $k) {
-            if (count($col) == 1)
+        /**
+         * Recursively flatten query where arrays consist of single values
+         */
+        array_walk($query, $func=function(&$col, $k)use(&$func) {
+            if (is_array($col) && count($col) == 1 && is_int(key($col)))
                 $col = array_pop($col);
+            if(is_array($col))
+                array_walk($col, $func);
         });
 
         if ($command !== array()) {
             $command['query'] = $query;
+            \Yii::trace('Executing command: ' . \CVarDumper::dumpAsString($command), 'ext.activedocument.drivers.mongo.Adapter');
             return $this->_storageInstance->command($command);
-        } else
+        } else {
+            \Yii::trace('Executing query: ' . \CVarDumper::dumpAsString($query), 'ext.activedocument.drivers.mongo.Adapter');
             return $this->getContainer($collection)->getContainerInstance()->find($query);
+        }
     }
 
     /**
-     * @param $arr
-     *
-     * @return \ext\activedocument\drivers\mongo\Object
+     * @param string $container Container name
+     * @param mixed $key
+     * @param mixed $value
+     * @return Object
      */
     protected function populateObject($container, $key, $value = null) {
         return new Object($this->getContainer($container), $key, $value, true);
