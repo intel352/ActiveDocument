@@ -340,6 +340,8 @@ abstract class Document extends CModel {
      * @throws Exception if the relation is not specified in {@link relations}.
      */
     public function &getRelated($name, $refresh = false, array $params = array(), array $keys = array()) {
+        if ($keys!==array())
+            $keys = array_map(array('self','stringify'), $keys);
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
             if ($keys!==array() && is_array($this->_related[$name])) {
                 return array_filter($this->_related[$name], function(Document $document)use($keys){
