@@ -61,7 +61,7 @@ class Property extends CComponent {
         'boolean' => array('bool', 'boolean'),
         'integer' => array('int', 'integer', 'timestamp', 'date', 'time', 'datetime'),
         'double' => array('float', 'double', 'number'),
-        'string' => array('string', 'text', 'mixed'),
+        'string' => array('string', 'text'),#, 'mixed'
     );
 
     public function __construct(array $data = array()) {
@@ -127,6 +127,7 @@ class Property extends CComponent {
      *
      * @todo Support realType such as "string|int", and size/lengths of values (somehow)
      * @todo Example supported types: http://www.icosaedro.it/phplint/phpdoc.html#types
+     * @todo Support realType of "mixed"
      */
     protected function extractType() {
         if ($this->realType === null)
@@ -148,18 +149,18 @@ class Property extends CComponent {
                 /**
                  * @todo We're hard-coding arrays as strings for now...
                  */
-                $this->type = 'string';
+                $this->type = 'array';
                 /**
                  * @todo Implement advanced array rule matching. Rudimentary start below
                  * @todo Structure of array could imply a selection would occur, and even perform value type validation
                  */
                 #$property->type = 'array';
                 #preg_match('/array(\[\]((\[\])*[\w\\\\]+)*)*/', $property->realType, $matches);
-            } else
+            } #else
                 /**
                  * @todo Support object/resource types specifically, for validation at the least
                  */
-                $this->type = 'string';
+                #$this->type = 'object';
         }
     }
 
