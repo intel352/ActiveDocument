@@ -97,12 +97,6 @@ abstract class Document extends CModel {
             $document      = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
-            /**
-             * Replacing certain validators
-             */
-            array_merge(\CValidator::$builtInValidators, array(
-                'unique'=>'\ext\activedocument\validators\Unique',
-            ));
             return $document;
         }
     }
@@ -122,7 +116,12 @@ abstract class Document extends CModel {
     }
 
     public function init() {
-
+        /**
+         * Replacing certain validators
+         */
+        \CValidator::$builtInValidators = array_merge(\CValidator::$builtInValidators, array(
+            'unique'=>'\ext\activedocument\validators\Unique',
+        ));
     }
 
     /**
@@ -310,6 +309,22 @@ abstract class Document extends CModel {
         return count($pks)>1 ? call_user_func_array('array_intersect', $pks) : array_shift($pks);
     }
 
+    public function getRelatedKeys($name) {
+        $relation = $this->getMetaData()->relations[$name];
+        if(!isset($this->getObject()->data[$name]))
+            return null;
+
+        if ($relation instanceof HasManyRelation) {
+            $pks = $this->getObject()->data[$name];
+            if ($relation->nested === true)
+                $pks = array_keys($pks);
+            return $pks;
+        } elseif($obj = $this->getRelated($name)) {
+            return $obj->getEncodedPk();
+        }
+        return null;
+    }
+
     /**
      * Returns related records filtered by indexed values, only applicable to HasMany or ManyMany relations
      *
@@ -406,6 +421,9 @@ abstract class Document extends CModel {
                 /* else if ($relation instanceof StatRelation)
              $this->_related[$name] = $relation->defaultValue; */
                 } else
+                    /**
+                     * @todo Need solution for nested HAS_ONE
+                     */
                     $this->_related[$name] = Document::model($relation->className)
                         ->findByPk($data[$name], null, $params);
             }
