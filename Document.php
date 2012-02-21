@@ -97,6 +97,12 @@ abstract class Document extends CModel {
             $document      = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
+            /**
+             * Replacing certain validators
+             */
+            array_merge(\CValidator::$builtInValidators, array(
+                'unique'=>'\ext\activedocument\validators\Unique',
+            ));
             return $document;
         }
     }
@@ -511,7 +517,7 @@ abstract class Document extends CModel {
     }
 
     public function refresh() {
-        Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.Document');
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
             $this->_related = array();
             $object         = $this->getObject();
@@ -851,7 +857,7 @@ abstract class Document extends CModel {
                     /**
                      * If the relation wasn't already empty, then it should be removed
                      */
-                    Yii::trace('Removing a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                    Yii::trace('Removing a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->clearRelation($name);
                     continue;
                 }
@@ -862,7 +868,7 @@ abstract class Document extends CModel {
                 if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey() === $this->getObject()->data[$name])
                     continue;
 
-                Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
 
                 /**
                  * Ensure $related is saved, so we have current PK
@@ -908,7 +914,7 @@ abstract class Document extends CModel {
                 /**
                  * If the relation wasn't already empty, then it should be removed
                  */
-                Yii::trace('Removing a ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                Yii::trace('Removing a ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                 $this->clearRelation($name);
                 continue;
             }
@@ -923,7 +929,7 @@ abstract class Document extends CModel {
 
                     $model->saveInternal(null, $modelRelations);
 
-                    Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                    Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->appendRelation($model, $name);
                 }
             } else {
@@ -935,7 +941,7 @@ abstract class Document extends CModel {
 
                 $related->saveInternal(null, $modelRelations);
 
-                Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.' . get_class($this));
+                Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                 $this->appendRelation($related, $name);
             }
         }
@@ -1127,7 +1133,7 @@ abstract class Document extends CModel {
         if (!$this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be inserted because it is not new.'));
         if ($this->beforeSave()) {
-            Yii::trace(get_class($this) . '.insert()', 'ext.activedocument.' . get_class($this));
+            Yii::trace(get_class($this) . '.insert()', 'ext.activedocument.Document');
             $this->ensurePk();
             if ($this->store($attributes)) {
                 $this->_pk = $this->_object->getKey();
@@ -1150,7 +1156,7 @@ abstract class Document extends CModel {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
         if ($this->beforeSave()) {
-            Yii::trace(get_class($this) . '.update()', 'ext.activedocument.' . get_class($this));
+            Yii::trace(get_class($this) . '.update()', 'ext.activedocument.Document');
             $this->ensurePk();
             if ($this->store($attributes)) {
                 $this->_pk = $this->_object->getKey();
@@ -1170,7 +1176,7 @@ abstract class Document extends CModel {
     public function saveAttributes(array $attributes) {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
-        Yii::trace(get_class($this) . '.saveAttributes()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.saveAttributes()', 'ext.activedocument.Document');
         $this->setAttributes($attributes, false);
         $this->ensurePk();
         if ($this->store(array_keys($attributes))) {
@@ -1187,7 +1193,7 @@ abstract class Document extends CModel {
     public function delete() {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be deleted because it is new.'));
-        Yii::trace(get_class($this) . '.delete()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.delete()', 'ext.activedocument.Document');
         if ($this->beforeDelete()) {
             $this->ensurePk();
             $result = $this->_object->delete();
@@ -1199,34 +1205,50 @@ abstract class Document extends CModel {
     }
 
     public function count($condition = null, array $params = array()) {
-        Yii::trace(get_class($this) . '.count()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.count()', 'ext.activedocument.Document');
         $criteria = $this->buildCriteria($condition, $params);
         $this->applyScopes($criteria);
         return $this->_container->count($criteria);
     }
 
+    /**
+     * Checks whether there is row satisfying the specified condition.
+     * See {@link find()} for detailed explanation about $condition and $params.
+     * @param mixed $condition Criteria object or array
+     * @param array $params parameters to be bound to an SQL statement.
+     * @return boolean whether there is row satisfying the specified condition.
+     */
+    public function exists($condition = null,array $params = array()) {
+        Yii::trace(get_class($this).'.exists()','ext.activedocument.Document');
+        $criteria = $this->buildCriteria($condition, $params);
+        $criteria->limit = 1;
+        $this->applyScopes($criteria);
+        return $this->_container->count($criteria)>0;
+    }
+
     public function find($condition = null, array $params = array()) {
-        Yii::trace(get_class($this) . '.find()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.find()', 'ext.activedocument.Document');
         return $this->query($this->buildCriteria($condition, $params));
     }
 
     /**
      * @param string|int|array $key
-     *
-     * @return \ext\activedocument\Document
+     * @param Criteria|array $condition Optional. Default: null
+     * @param array $params Optional.
+     * @return Document|null
      */
     public function findByPk($key, $condition = null, array $params = array()) {
-        Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.findByPk()', 'ext.activedocument.Document');
         return $this->query($this->buildCriteria($condition, $params), false, array($key));
     }
 
     public function findAll($condition = null, array $params = array()) {
-        Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.Document');
         return $this->query($this->buildCriteria($condition, $params), true);
     }
 
     public function findAllByPk(array $keys, $condition = null, array $params = array()) {
-        Yii::trace(get_class($this) . '.findAllByPk()', 'ext.activedocument.' . get_class($this));
+        Yii::trace(get_class($this) . '.findAllByPk()', 'ext.activedocument.Document');
         return $this->query($this->buildCriteria($condition, $params), true, $keys);
     }
 
