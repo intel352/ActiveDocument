@@ -22,7 +22,19 @@ class Object extends \ext\activedocument\Object {
     protected function storeInternal() {
         $this->setObjectData($this->data);
         try {
-            $this->_container->getContainerInstance()->save($this->getObjectData());
+            /**
+             * Ensure _id is not null or empty string. Empty string is a valid key in mongo
+             */
+            if(isset($this->_objectInstance->_id) && ($this->_objectInstance->_id===null && $this->_objectInstance->_id!==''))
+                unset($this->_objectInstance->_id);
+
+            /**
+             * When we aren't specifying a pk, we should insert, which will update _objectInstance with new pk
+             */
+            if(!isset($this->_objectInstance->_id))
+                $this->_container->getContainerInstance()->insert($this->_objectInstance);
+            else
+                $this->_container->getContainerInstance()->save($this->_objectInstance);
             $this->data = $this->getObjectData();
         }catch(\MongoException $e) {
             /**
