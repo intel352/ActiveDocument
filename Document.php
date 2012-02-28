@@ -159,11 +159,13 @@ abstract class Document extends CModel {
 
     public function setObject(Object $object) {
         $this->_object = $object;
-        if (!$this->getIsNewRecord())
+        if (!$this->getIsNewRecord()) {
+            $this->setAttributes($this->_object->data, false);
             $this->ensurePk();
-        else
+        }else{
             $this->_object->data = $this->getMetaData()->attributeDefaults;
-        $this->setAttributes($this->_object->data, false);
+            $this->setAttributes($this->_object->data, false);
+        }
     }
 
     public function getIsNewRecord() {
@@ -341,7 +343,8 @@ abstract class Document extends CModel {
         if ($pks === array())
             return $pks;
         Yii::trace('Requesting related records for relation ' . get_class($this) . '.'.$name.', filtered by '.\CVarDumper::dumpAsString($indexes), 'ext.activedocument.document.getRelatedByIndex');
-        return $this->getRelated($name, $refresh, $params, $pks);
+        $related = $this->getRelated($name, $refresh, $params, $pks);
+        return $related;
     }
 
     /**
@@ -365,9 +368,10 @@ abstract class Document extends CModel {
             $keys = array_map(array('self','stringify'), $keys);
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
             if ($keys!==array() && is_array($this->_related[$name])) {
-                return array_filter($this->_related[$name], function(Document $document)use($keys){
+                $related = array_filter($this->_related[$name], function(Document $document)use($keys){
                     return in_array($document->getEncodedPk(), $keys);
                 });
+                return $related;
             }else{
                 return $this->_related[$name];
             }
@@ -598,11 +602,13 @@ abstract class Document extends CModel {
      * Method to ensure that $this->_pk is defined correctly
      */
     protected function ensurePk() {
-        if ($this->_pk === null)
-            if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null)
+        if ($this->_pk === null) {
+            if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null) {
                 $this->_pk = self::stringify($this->getPrimaryKey());
-            elseif ($this->_object->getKey() !== null)
+            }elseif ($this->_object->getKey() !== null) {
                 $this->_pk = $this->_object->getKey();
+            }
+        }
     }
 
     /**
