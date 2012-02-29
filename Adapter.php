@@ -40,7 +40,7 @@ abstract class Adapter extends CComponent {
     /**
      * @abstract
      * @param \ext\activedocument\Criteria $criteria
-     * @return array[]\ext\activedocument\Object
+     * @return \ext\activedocument\Object[]
      */
     abstract protected function findInternal(Criteria $criteria);
 
@@ -160,7 +160,7 @@ abstract class Adapter extends CComponent {
 
     /**
      * @param \ext\activedocument\Criteria $criteria
-     * @return array[]\ext\activedocument\Object
+     * @return \ext\activedocument\Object[]
      */
     public function find(Criteria $criteria) {
         if ($this->getConnection()->enableProfiling) {

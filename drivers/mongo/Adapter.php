@@ -71,7 +71,7 @@ class Adapter extends \ext\activedocument\Adapter {
     /**
      * @param \ext\activedocument\Criteria $criteria
      *
-     * @return array[]\ext\activedocument\drivers\mongo\Object
+     * @return \ext\activedocument\drivers\mongo\Object[]
      */
     protected function findInternal(\ext\activedocument\Criteria $criteria) {
         $cursor = $this->applySearchFilters($criteria);

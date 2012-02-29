@@ -160,7 +160,7 @@ abstract class Container extends CComponent {
 
     /**
      * @param \ext\activedocument\Criteria|null $criteria optional
-     * @return array[]\ext\activedocument\Object
+     * @return \ext\activedocument\Object[]
      */
     public function find(Criteria $criteria=null) {
         if ($criteria === null)
