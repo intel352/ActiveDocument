@@ -105,7 +105,7 @@ class Adapter extends \ext\activedocument\Adapter {
     /**
      * @param \ext\activedocument\Criteria $criteria
      *
-     * @return array[]\ext\activedocument\drivers\riak\Object
+     * @return \ext\activedocument\drivers\riak\Object[]
      */
     protected function findInternal(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);

@@ -59,7 +59,7 @@ This quick example uses the Memory driver
      * default attribute validation rules).
      *
      * @property string $name
-     * @property array[]ConfigSetting $options Not needed for ActiveDocument, this exists as helper phpdoc for IDE users
+     * @property ConfigSetting[] $options Not needed for ActiveDocument, this exists as helper phpdoc for IDE users
      */
     class Config extends \ext\activedocument\Document {
 
