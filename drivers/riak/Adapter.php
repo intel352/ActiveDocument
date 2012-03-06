@@ -4,7 +4,9 @@ namespace ext\activedocument\drivers\riak;
 
 use \Yii;
 
-Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.riiak'));
+if(!Yii::getPathOfAlias('riiak')) {
+    Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.riiak'));
+}
 
 /**
  * @property string $host
