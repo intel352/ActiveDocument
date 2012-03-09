@@ -216,8 +216,8 @@ class MetaData extends CComponent {
     /**
      * Parses phpdoc text to identify class property definitions
      *
-     * @param string $string Line of phpdoc
-     * @param int $index
+     * @param string                   $string Line of phpdoc
+     * @param int                      $index
      * @param null|\ReflectionProperty $property
      */
     protected function parsePhpDocProperties($string, $index, \ReflectionProperty $property = null) {
@@ -226,11 +226,38 @@ class MetaData extends CComponent {
                 $matches['name'] = $property->name;
 
             if (($varName = ($property !== null) ? $property->name : $matches['name']))
-                if (!array_key_exists($varName, $this->_classMeta->properties))
-                    $this->_classMeta->properties->$varName = new schema\Property($matches);
+                if (!$this->hasProperty($varName))
+                    $this->addProperty($varName, $matches);
                 else
                     $this->_classMeta->properties->$varName->setData($matches);
         }
+    }
+
+    /**
+     * @param string $name
+     * @param array  $config
+     * @param bool   $force
+     *
+     * @return MetaData
+     * @throws Exception
+     */
+    public function addProperty($name, array $config, $force = false) {
+        if (!$force && ($this->hasRelation($name) || $this->hasProperty($name))) {
+            throw new Exception(
+                strtr('Unable to add property "{prop}", relation or property of same name exists!', array('{prop}' => $name))
+            );
+        }
+        $this->getClassMeta()->properties->$name = new schema\Property($config);
+        return $this;
+    }
+
+    /**
+     * @param string $name
+     *
+     * @return bool
+     */
+    public function hasProperty($name) {
+        return isset($this->getClassMeta()->properties->$name);
     }
 
     /**
@@ -250,14 +277,13 @@ class MetaData extends CComponent {
      * $config is an array with the following elements:
      * relation type, the related active document class
      *
-     * @throws Exception
-     *
      * @param string $name   Name of the relation.
      * @param array  $config Relation parameters.
      *
-     * @return void
+     * @return MetaData
+     * @throws Exception
      */
-    public function addRelation($name, $config) {
+    public function addRelation($name, array $config) {
         if (isset($config[0], $config[1])) {
             $this->getClassMeta()->relations[$name] = new $config[0]($name, $config[1], array_slice($config, 2));
             /**
@@ -267,6 +293,7 @@ class MetaData extends CComponent {
                 unset($this->getClassMeta()->properties[$name]);
         } else
             throw new Exception(Yii::t('yii', 'Active document "{class}" has an invalid configuration for relation "{relation}". It must specify the relation type and the related active document class.', array('{class}' => get_class($this->_model), '{relation}' => $name)));
+        return $this;
     }
 
     /**
@@ -285,10 +312,11 @@ class MetaData extends CComponent {
      *
      * @param string $name
      *
-     * @return void
+     * @return MetaData
      */
     public function removeRelation($name) {
         unset($this->getClassMeta()->relations[$name]);
+        return $this;
     }
 
 }

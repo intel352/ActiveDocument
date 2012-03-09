@@ -5,10 +5,16 @@ namespace ext\activedocument;
 /**
  * Behavior
  *
- * @version $Version: 1.0.dev.52 $
- * @author $Author: intel352 $
+ * @property \ext\activedocument\Document $owner
  */
 class Behavior extends \CModelBehavior {
+
+    /**
+     * @return \ext\activedocument\Document
+     */
+    public function getOwner() {
+        return parent::getOwner();
+    }
 
     /**
      * Declares events and the corresponding event handler methods.

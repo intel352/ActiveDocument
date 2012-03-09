@@ -21,6 +21,7 @@ Yii::import('ext.activedocument.Relation', true);
  * @property bool $isNewRecord
  * @property \ext\activedocument\Criteria $criteria
  * @property mixed $primaryKey
+ * @property-read bool $isModified
  * @property-read string $encodedPk
  * @property-read \ext\activedocument\Connection $connection
  * @property-read \ext\activedocument\Adapter $adapter
@@ -47,7 +48,7 @@ abstract class Document extends CModel {
     /**
      * Array of connections
      *
-     * @var array \ext\activedocument\Connection
+     * @var \ext\activedocument\Connection[]
      */
     public static $connections = array();
     private static $_models = array();
@@ -77,6 +78,14 @@ abstract class Document extends CModel {
     protected $_pk;
 
     /**
+     * The columns that have been modified in current object.
+     * Tracking modified columns allows us to only update modified columns.
+     *
+     * @var        array
+     */
+    protected $_modifiedAttributes = array();
+
+    /**
      * @var \ext\activedocument\Document
      */
     protected $_owner;
@@ -94,6 +103,9 @@ abstract class Document extends CModel {
         if (isset(self::$_models[$className]))
             return self::$_models[$className];
         else {
+            /**
+             * @var \ext\activedocument\Document $document
+             */
             $document      = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
@@ -120,8 +132,10 @@ abstract class Document extends CModel {
          * Replacing certain validators
          */
         \CValidator::$builtInValidators = array_merge(\CValidator::$builtInValidators, array(
-            'unique'=>'\ext\activedocument\validators\Unique',
+            'unique' => '\ext\activedocument\validators\Unique',
         ));
+
+        $this->resetModified();
     }
 
     /**
@@ -162,7 +176,7 @@ abstract class Document extends CModel {
         if (!$this->getIsNewRecord()) {
             $this->setAttributes($this->_object->data, false);
             $this->ensurePk();
-        }else{
+        } else {
             $this->_object->data = $this->getMetaData()->attributeDefaults;
             $this->setAttributes($this->_object->data, false);
         }
@@ -174,6 +188,52 @@ abstract class Document extends CModel {
 
     public function setIsNewRecord($value) {
         $this->_new = $value;
+    }
+
+    /**
+     * Returns whether the object has been modified.
+     *
+     * @return     boolean True if the object has been modified.
+     */
+    public function getIsModified() {
+        return !empty($this->_modifiedAttributes);
+    }
+
+    /**
+     * Has specified attribute been modified?
+     *
+     * @param      string $attr attribute fully qualified name
+     *
+     * @return     boolean True if $attr has been modified.
+     */
+    public function isAttributeModified($attr) {
+        return in_array($attr, $this->_modifiedAttributes);
+    }
+
+    /**
+     * Get the attributes that have been modified in this object.
+     *
+     * @return     array A unique list of the modified attribute names for this object.
+     */
+    public function getModifiedAttributes() {
+        return array_unique($this->_modifiedAttributes);
+    }
+
+    /**
+     * Sets the modified state for the object to be false.
+     *
+     * @param      string $attr If supplied, only the specified attribute is reset.
+     *
+     * @return     void
+     */
+    public function resetModified($attr = null) {
+        if ($attr !== null) {
+            while (($offset = array_search($attr, $this->_modifiedAttributes)) !== false) {
+                array_splice($this->_modifiedAttributes, $offset, 1);
+            }
+        } else {
+            $this->_modifiedAttributes = array();
+        }
     }
 
     public function getCriteria($createIfNull = true) {
@@ -220,9 +280,10 @@ abstract class Document extends CModel {
 
     public function __set($name, $value) {
         if ($this->setAttribute($name, $value) === false) {
-            if (isset($this->getMetaData()->relations->$name))
-                $this->_related[$name] = $value;
-            else
+            if (isset($this->getMetaData()->relations->$name)) {
+                $this->_related[$name]       = $value;
+                $this->_modifiedAttributes[] = $name;
+            } else
                 parent::__set($name, $value);
         }
     }
@@ -241,11 +302,13 @@ abstract class Document extends CModel {
     }
 
     public function __unset($name) {
-        if (isset($this->getMetaData()->attributes->$name))
+        if (isset($this->getMetaData()->attributes->$name)) {
             unset($this->_attributes[$name]);
-        else if (isset($this->getMetaData()->relations->$name))
+            $this->_modifiedAttributes[] = $name;
+        } else if (isset($this->getMetaData()->relations->$name)) {
             unset($this->_related[$name]);
-        else
+            $this->_modifiedAttributes[] = $name;
+        } else
             parent::__unset($name);
     }
 
@@ -269,51 +332,51 @@ abstract class Document extends CModel {
     /**
      * Returns arrays of indexed keys, only applicable to HasMany or ManyMany relations
      *
-     * @param string $name The relation name (see {@link relations})
+     * @param string       $name  The relation name (see {@link relations})
      * @param string|array $index Name of the index, or array of index names
      *
      * @return array[]array[]string
      */
     public function getRelatedKeysByIndexName($name, $index) {
-        $index = array_combine((array) $index, (array) $index);
+        $index  = array_combine((array)$index, (array)$index);
         $object = $this->getObject();
-        return array_map(function($index)use($name, $object){
-            return isset($object->data[$name.'_'.$index])?$object->data[$name.'_'.$index]:array();
+        return array_map(function($index) use($name, $object) {
+            return isset($object->data[$name . '_' . $index]) ? $object->data[$name . '_' . $index] : array();
         }, $index);
     }
 
     /**
      * Return array of keys, filtered by specified index values, only applicable to HasMany or ManyMany relations
      *
-     * @param string $name The relation name (see {@link relations})
-     * @param array $indexes Array of 'indexName'=>'searchValue' to search by
-     * @param array $keys Array of keys to additionally filter by
+     * @param string $name    The relation name (see {@link relations})
+     * @param array  $indexes Array of 'indexName'=>'searchValue' to search by
+     * @param array  $keys    Array of keys to additionally filter by
      *
      * @return array
      */
     public function getRelatedKeysByIndex($name, array $indexes, array $keys = array()) {
-        $pks = array();
+        $pks    = array();
         $object = $this->getObject();
-        $class = get_class($this);
-        array_walk($indexes, function($indexValue, $index)use($name, $object, &$pks, $class){
-            $indexName = $name.'_'.$index;
-            if($indexValue === '' || $indexValue === null)
+        $class  = get_class($this);
+        array_walk($indexes, function($indexValue, $index) use($name, $object, &$pks, $class) {
+            $indexName = $name . '_' . $index;
+            if ($indexValue === '' || $indexValue === null)
                 return;
             $indexValue = $class::stringify($indexValue);
-            if(!isset($object->data[$indexName][$indexValue]) || $object->data[$indexName][$indexValue]===array())
+            if (!isset($object->data[$indexName][$indexValue]) || $object->data[$indexName][$indexValue] === array())
                 return;
             $pks[] = $object->data[$indexName][$indexValue];
         });
-        if($pks===array())
+        if ($pks === array())
             return array();
-        if ($keys!==array())
+        if ($keys !== array())
             array_push($pks, $keys);
-        return count($pks)>1 ? call_user_func_array('array_intersect', $pks) : array_shift($pks);
+        return count($pks) > 1 ? call_user_func_array('array_intersect', $pks) : array_shift($pks);
     }
 
     public function getRelatedKeys($name) {
         $relation = $this->getMetaData()->relations[$name];
-        if(!isset($this->getObject()->data[$name]))
+        if (!isset($this->getObject()->data[$name]))
             return null;
 
         if ($relation instanceof HasManyRelation) {
@@ -321,7 +384,7 @@ abstract class Document extends CModel {
             if ($relation->nested === true)
                 $pks = array_keys($pks);
             return $pks;
-        } elseif($obj = $this->getRelated($name)) {
+        } elseif ($obj = $this->getRelated($name)) {
             return $obj->getEncodedPk();
         }
         return null;
@@ -330,11 +393,11 @@ abstract class Document extends CModel {
     /**
      * Returns related records filtered by indexed values, only applicable to HasMany or ManyMany relations
      *
-     * @param string $name The relation name (see {@link relations})
-     * @param array $indexes Array of 'indexName'=>'searchValue' to search by
-     * @param bool $refresh Whether to force reload objects from db
-     * @param array $params Additional parameters to customize query
-     * @param array $keys Array of keys to additionally filter by
+     * @param string $name    The relation name (see {@link relations})
+     * @param array  $indexes Array of 'indexName'=>'searchValue' to search by
+     * @param bool   $refresh Whether to force reload objects from db
+     * @param array  $params  Additional parameters to customize query
+     * @param array  $keys    Array of keys to additionally filter by
      *
      * @return array
      */
@@ -342,7 +405,7 @@ abstract class Document extends CModel {
         $pks = $this->getRelatedKeysByIndex($name, $indexes, $keys);
         if ($pks === array())
             return $pks;
-        Yii::trace('Requesting related records for relation ' . get_class($this) . '.'.$name.', filtered by '.\CVarDumper::dumpAsString($indexes), 'ext.activedocument.document.getRelatedByIndex');
+        Yii::trace('Requesting related records for relation ' . get_class($this) . '.' . $name . ', filtered by ' . \CVarDumper::dumpAsString($indexes), 'ext.activedocument.document.getRelatedByIndex');
         $related = $this->getRelated($name, $refresh, $params, $pks);
         return $related;
     }
@@ -364,15 +427,15 @@ abstract class Document extends CModel {
      * @throws Exception if the relation is not specified in {@link relations}.
      */
     public function &getRelated($name, $refresh = false, array $params = array(), array $keys = array()) {
-        if ($keys!==array())
-            $keys = array_map(array('self','stringify'), $keys);
+        if ($keys !== array())
+            $keys = array_map(array('self', 'stringify'), $keys);
         if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
-            if ($keys!==array() && is_array($this->_related[$name])) {
-                $related = array_filter($this->_related[$name], function(Document $document)use($keys){
+            if ($keys !== array() && is_array($this->_related[$name])) {
+                $related = array_filter($this->_related[$name], function(Document $document) use($keys) {
                     return in_array($document->getEncodedPk(), $keys);
                 });
                 return $related;
-            }else{
+            } else {
                 return $this->_related[$name];
             }
 
@@ -403,9 +466,9 @@ abstract class Document extends CModel {
             if ($relation instanceof Relation && $relation->nested === true && $params === array()) {
                 Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.document.getRelated');
                 if ($relation instanceof HasManyRelation) {
-                    if ($keys!==array())
+                    if ($keys !== array())
                         $data[$name] = array_intersect_key($data[$name], array_flip($keys));
-                    array_walk($data[$name], function(&$rel, $key)use($relation){
+                    array_walk($data[$name], function(&$rel, $key) use($relation) {
                         $rel = Document::model($relation->className)->getContainer()->getObject($key, $rel, true);
                     });
                     $this->_related[$name] = Document::model($relation->className)->populateDocuments($data[$name]);
@@ -422,8 +485,8 @@ abstract class Document extends CModel {
                         $pks = array_intersect($pks, $keys);
                     $this->_related[$name] = Document::model($relation->className)
                         ->findAllByPk($pks, null, $params);
-                /* else if ($relation instanceof StatRelation)
-             $this->_related[$name] = $relation->defaultValue; */
+                    /* else if ($relation instanceof StatRelation)
+                 $this->_related[$name] = $relation->defaultValue; */
                 } else
                     /**
                      * @todo Need solution for nested HAS_ONE
@@ -479,6 +542,7 @@ abstract class Document extends CModel {
             $this->_related[$name][] = $document;
         } else
             $this->_related[$name] = $document;
+        $this->_modifiedAttributes[] = $name;
 
         if (!empty($foreignName)) {
             if (!is_array($document))
@@ -508,11 +572,12 @@ abstract class Document extends CModel {
             /**
              * Typecast the value
              */
-            if($value!==null && $value!=='' && ($type=$this->getMetaData()->attributes->$name->type))
+            if ($value !== null && $value !== '' && ($type = $this->getMetaData()->attributes->$name->type))
                 settype($value, $type);
             $this->_attributes[$name] = $value;
         } else
             return false;
+        $this->_modifiedAttributes[] = $name;
         return true;
     }
 
@@ -538,6 +603,23 @@ abstract class Document extends CModel {
             return $attributes;
     }
 
+    /**
+     * Sets the attribute values in a massive way.
+     *
+     * @param array   $values   attribute values (name=>value) to be set.
+     * @param boolean $safeOnly whether the assignments should only be done to the safe attributes.
+     *                          A safe attribute is one that is associated with a validation rule in the current {@link scenario}.
+     *
+     * @see getSafeAttributeNames
+     * @see attributeNames
+     */
+    public function setAttributes($values, $safeOnly = true) {
+        if (!is_array($values))
+            return;
+        $this->_modifiedAttributes += $safeOnly ? $this->getSafeAttributeNames() : $this->attributeNames();
+        return parent::setAttributes($values, $safeOnly);
+    }
+
     public function refresh() {
         Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.Document');
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
@@ -547,6 +629,7 @@ abstract class Document extends CModel {
                 if (property_exists($this, $name) && isset($object->data[$name]))
                     $this->$name = $object->data[$name];
             }
+            $this->resetModified();
             return true;
         }
         else
@@ -605,7 +688,7 @@ abstract class Document extends CModel {
         if ($this->_pk === null) {
             if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null) {
                 $this->_pk = self::stringify($this->getPrimaryKey());
-            }elseif ($this->_object->getKey() !== null) {
+            } elseif ($this->_object->getKey() !== null) {
                 $this->_pk = $this->_object->getKey();
             }
         }
@@ -853,7 +936,7 @@ abstract class Document extends CModel {
             /**
              * Only process this relation if it has been loaded (even loaded & unset)
              */
-            if (!$this->hasRelated($name))
+            if (!$this->hasRelated($name) || !$this->isAttributeModified($name))
                 continue;
 
             if ($relation instanceof BelongsToRelation) {
@@ -866,6 +949,9 @@ abstract class Document extends CModel {
                     continue;
                 array_push($modelRelations, $relationHash);
 
+                /**
+                 * @var \ext\activedocument\Document $related
+                 */
                 $related = $this->getRelated($name);
 
                 /**
@@ -889,7 +975,10 @@ abstract class Document extends CModel {
                 /**
                  * If the relation was already set, skip
                  */
-                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey() === $this->getObject()->data[$name])
+                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() &&
+                    ($related->getPrimaryKey() === $this->getObject()->data[$name] ||
+                        ($relations[$name]->nested && $this->getObject()->data[$name] === $related->getObject()->data &&
+                        !$related->isModified)))
                     continue;
 
                 Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
@@ -897,18 +986,19 @@ abstract class Document extends CModel {
                 /**
                  * Ensure $related is saved, so we have current PK
                  */
-                if ($related->saveInternal(null, $modelRelations))
+                if (!$related->isModified || $related->saveInternal(null, $modelRelations))
                     $this->appendRelation($related, $name);
             }
             else
                 $queue[] = $name;
         }
 
-        if ($this->getIsNewRecord() && empty($this->primaryKey))
+        if ($this->getIsNewRecord() && empty($this->primaryKey)) {
             if (!$this->insert($attributes))
                 return false;
             elseif (empty($queue))
                 return true;
+        }
 
         /**
          * @todo May need to separate saving from the process, until the end, to prevent repetitive saving
@@ -919,7 +1009,7 @@ abstract class Document extends CModel {
             /**
              * Ensure relation hasn't already been processed
              */
-            if (in_array($relationHash, $modelRelations))
+            if (in_array($relationHash, $modelRelations) || !$this->isAttributeModified($name))
                 continue;
             array_push($modelRelations, $relationHash);
 
@@ -943,15 +1033,25 @@ abstract class Document extends CModel {
                 continue;
             }
 
+            /**
+             * @var \ext\activedocument\Relation $relations[$name]
+             */
             if ($relations[$name] instanceof HasManyRelation) {
+                /**
+                 * @var \ext\activedocument\Document $model
+                 */
                 foreach ($related as $model) {
                     /**
                      * If the relation was already set, skip
                      */
-                    if (isset($this->getObject()->data[$name]) && !$model->getIsNewRecord() && in_array($model->getPrimaryKey(), $this->getObject()->data[$name]))
+                    if (isset($this->getObject()->data[$name]) && !$model->getIsNewRecord() &&
+                        (in_array($model->getPrimaryKey(), $this->getObject()->data[$name]) ||
+                            ($relations[$name]->nested && array_key_exists($model->encodedPk, $this->getObject()->data[$name]) &&
+                            !$model->isModified)))
                         continue;
 
-                    $model->saveInternal(null, $modelRelations);
+                    if ($model->isModified)
+                        $model->saveInternal(null, $modelRelations);
 
                     Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->appendRelation($model, $name);
@@ -960,21 +1060,31 @@ abstract class Document extends CModel {
                 /**
                  * If the relation was already set, skip
                  */
-                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() && $related->getPrimaryKey() === $this->getObject()->data[$name])
+                if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() &&
+                    ($related->getPrimaryKey() === $this->getObject()->data[$name] ||
+                        ($relations[$name]->nested && $this->getObject()->data[$name] === $related->getObject()->data &&
+                        !$related->isModified)))
                     continue;
 
-                $related->saveInternal(null, $modelRelations);
+                if ($related->isModified)
+                    $related->saveInternal(null, $modelRelations);
 
                 Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                 $this->appendRelation($related, $name);
             }
         }
 
-        if (!($this->getIsNewRecord() ? $this->insert($attributes) : $this->update($attributes)))
-            return false;
+        if ($this->isModified) {
+            if (!($this->getIsNewRecord() ? $this->insert($attributes) : $this->update($attributes)))
+                return false;
+        }
 
         return true;
     }
+
+    /*public function hasChanged() {
+        return !((array) $this->getObject()->data == (array) $this->getObjectData());
+    }*/
 
     /**
      * Pushes the $relationModel's PK into current object's relations
@@ -987,8 +1097,8 @@ abstract class Document extends CModel {
     public function appendRelation(Document $relationModel, $relationName) {
         $pk = $relationModel->getPrimaryKey();
         if (empty($pk))
-            throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!').
-                PHP_EOL.'Model: '.\CVarDumper::dumpAsString($relationModel->getAttributes()));
+            throw new Exception(Yii::t('yii', 'Related model primary key must not be empty!') .
+                PHP_EOL . 'Model: ' . \CVarDumper::dumpAsString($relationModel->getAttributes()));
 
         /**
          * @var \ext\activedocument\Relation
@@ -1000,10 +1110,10 @@ abstract class Document extends CModel {
              * Manages relation indexes stored within the model
              */
             if ($relation->autoIndices !== array()) {
-                foreach($relation->autoIndices as $index) {
-                    $indexName = $relationName.'_'.$index;
+                foreach ($relation->autoIndices as $index) {
+                    $indexName  = $relationName . '_' . $index;
                     $indexValue = $relationModel->getAttribute($index);
-                    if($indexValue === '' || $indexValue === null)
+                    if ($indexValue === '' || $indexValue === null)
                         continue;
                     $indexValue = self::stringify($indexValue);
                     if (!isset($this->getObject()->data[$indexName]) || !is_array($this->getObject()->data[$indexName]))
@@ -1022,6 +1132,8 @@ abstract class Document extends CModel {
                 $this->getObject()->data[$relationName][] = $pk;
         } else
             $this->getObject()->data[$relationName] = $relation->nested ? $relationModel->getObject()->data : $pk;
+
+        $this->_modifiedAttributes[] = $relationName;
     }
 
     /**
@@ -1051,6 +1163,8 @@ abstract class Document extends CModel {
                 unset($this->getObject()->data[$relationName][$key]);
         } else
             unset($this->getObject()->data[$relationName]);
+
+        $this->_modifiedAttributes[] = $relationName;
     }
 
     /**
@@ -1060,6 +1174,7 @@ abstract class Document extends CModel {
      */
     public function clearRelation($relationName) {
         unset($this->getObject()->data[$relationName]);
+        $this->_modifiedAttributes[] = $relationName;
     }
 
     public function onBeforeSave(Event $event) {
@@ -1099,6 +1214,7 @@ abstract class Document extends CModel {
     protected function afterSave() {
         if ($this->hasEventHandler('onAfterSave'))
             $this->onAfterSave(new \CEvent($this));
+        $this->resetModified();
     }
 
     protected function beforeDelete() {
@@ -1114,6 +1230,7 @@ abstract class Document extends CModel {
     protected function afterDelete() {
         if ($this->hasEventHandler('onAfterDelete'))
             $this->onAfterDelete(new \CEvent($this));
+        $this->resetModified();
     }
 
     protected function beforeFind() {
@@ -1128,6 +1245,7 @@ abstract class Document extends CModel {
     protected function afterFind() {
         if ($this->hasEventHandler('onAfterFind'))
             $this->onAfterFind(new \CEvent($this));
+        $this->resetModified();
     }
 
     public function beforeFindInternal() {
@@ -1205,6 +1323,7 @@ abstract class Document extends CModel {
         $this->ensurePk();
         if ($this->store(array_keys($attributes))) {
             $this->_pk = $this->_object->getKey();
+            $this->_modifiedAttributes = array_diff(array_unique($this->_modifiedAttributes), array_keys($attributes));
             return true;
         }
         return false;
@@ -1238,16 +1357,18 @@ abstract class Document extends CModel {
     /**
      * Checks whether there is row satisfying the specified condition.
      * See {@link find()} for detailed explanation about $condition and $params.
+     *
      * @param mixed $condition Criteria object or array
-     * @param array $params parameters to be bound to an SQL statement.
+     * @param array $params    parameters to be bound to an SQL statement.
+     *
      * @return boolean whether there is row satisfying the specified condition.
      */
-    public function exists($condition = null,array $params = array()) {
-        Yii::trace(get_class($this).'.exists()','ext.activedocument.Document');
-        $criteria = $this->buildCriteria($condition, $params);
+    public function exists($condition = null, array $params = array()) {
+        Yii::trace(get_class($this) . '.exists()', 'ext.activedocument.Document');
+        $criteria        = $this->buildCriteria($condition, $params);
         $criteria->limit = 1;
         $this->applyScopes($criteria);
-        return $this->_container->count($criteria)>0;
+        return $this->_container->count($criteria) > 0;
     }
 
     public function find($condition = null, array $params = array()) {
@@ -1257,8 +1378,9 @@ abstract class Document extends CModel {
 
     /**
      * @param string|int|array $key
-     * @param Criteria|array $condition Optional. Default: null
-     * @param array $params Optional.
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array            $params    Optional.
+     *
      * @return Document|null
      */
     public function findByPk($key, $condition = null, array $params = array()) {
