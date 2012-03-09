@@ -29,7 +29,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
     /**
      * @param \ext\activedocument\Criteria $criteria
-     * @return array[]\ext\activedocument\drivers\memory\Object
+     * @return \ext\activedocument\drivers\memory\Object[]
      */
     protected function findInternal(\ext\activedocument\Criteria $criteria) {
         $values = $this->applySearchFilters($criteria);

@@ -384,8 +384,8 @@ abstract class Document extends CModel {
             if ($relation->nested === true)
                 $pks = array_keys($pks);
             return $pks;
-        } elseif ($obj = $this->getRelated($name)) {
-            return $obj->getEncodedPk();
+        } else {
+            return self::stringify($this->getObject()->data[$name]);
         }
         return null;
     }

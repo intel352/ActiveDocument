@@ -4,7 +4,9 @@ namespace ext\activedocument\drivers\riak;
 
 use \Yii;
 
-Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.riiak'));
+if(!Yii::getPathOfAlias('riiak')) {
+    Yii::setPathOfAlias('riiak', Yii::getPathOfAlias('ext.activedocument.vendors.riiak'));
+}
 
 /**
  * @property string $host
@@ -105,7 +107,7 @@ class Adapter extends \ext\activedocument\Adapter {
     /**
      * @param \ext\activedocument\Criteria $criteria
      *
-     * @return array[]\ext\activedocument\drivers\riak\Object
+     * @return \ext\activedocument\drivers\riak\Object[]
      */
     protected function findInternal(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
