@@ -32,9 +32,9 @@ class Object extends \ext\activedocument\Object {
              * When we aren't specifying a pk, we should insert, which will update _objectInstance with new pk
              */
             if(!isset($this->_objectInstance->_id))
-                $this->_container->getContainerInstance()->insert($this->_objectInstance);
+                $this->_container->getContainerInstance()->insert($this->_objectInstance, array('safe'=>true));
             else
-                $this->_container->getContainerInstance()->save($this->_objectInstance);
+                $this->_container->getContainerInstance()->save($this->_objectInstance, array('safe'=>true));
             $this->data = $this->getObjectData();
         }catch(\MongoException $e) {
             /**
@@ -51,7 +51,7 @@ class Object extends \ext\activedocument\Object {
     protected function deleteInternal() {
         $this->setObjectData($this->data);
         try {
-            $this->_container->getContainerInstance()->remove(array('_id'=> $this->getKey()));
+            $this->_container->getContainerInstance()->remove(array('_id'=> $this->getKey()), array('safe'=>true));
         }catch(\MongoException $e) {
             /**
              * @todo Throw custom exception

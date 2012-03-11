@@ -455,7 +455,7 @@ abstract class Document extends CModel {
         }
 
         if ($params !== array() || ($relation instanceof HasManyRelation && $keys !== array())) { // dynamic query
-            $exists = isset($this->_related[$name]) || array_key_exists($name, $this->_related);
+            $exists = $this->hasRelated($name);
             if ($exists)
                 $save = $this->_related[$name];
         }
@@ -925,30 +925,19 @@ abstract class Document extends CModel {
      *
      * @return boolean True on success
      */
-    protected function saveInternal(array $attributes = null, &$modelRelations = array()) {
+    protected function saveInternal(array $attributes = null, array &$modelRelations = array()) {
         if ($attributes === array())
             $attributes = null;
+        array_push($modelRelations, $this);
 
         $relations = $this->getMetaData()->relations;
         $queue     = array();
 
         foreach ($relations as $name => $relation) {
-            /**
-             * Only process this relation if it has been loaded (even loaded & unset)
-             */
-            if (!$this->hasRelated($name) || !$this->isAttributeModified($name))
+            if (!$this->hasRelated($name))
                 continue;
 
             if ($relation instanceof BelongsToRelation) {
-                $relationHash = array(get_class($this), $relation->className);
-                sort($relationHash);
-                /**
-                 * Ensure relation hasn't already been processed
-                 */
-                if (in_array($relationHash, $modelRelations))
-                    continue;
-                array_push($modelRelations, $relationHash);
-
                 /**
                  * @var \ext\activedocument\Document $related
                  */
@@ -957,7 +946,7 @@ abstract class Document extends CModel {
                 /**
                  * If the relation is empty...
                  */
-                if ($related === null) {
+                if ($related===null || $related==='') {
                     /**
                      * If the relation was already empty, skip
                      */
@@ -967,7 +956,7 @@ abstract class Document extends CModel {
                     /**
                      * If the relation wasn't already empty, then it should be removed
                      */
-                    Yii::trace('Removing a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    Yii::trace('Removing a relation "'.$name.'" of type ' . get_class($relation) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->clearRelation($name);
                     continue;
                 }
@@ -976,18 +965,20 @@ abstract class Document extends CModel {
                  * If the relation was already set, skip
                  */
                 if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() &&
-                    ($related->getPrimaryKey() === $this->getObject()->data[$name] ||
-                        ($relations[$name]->nested && $this->getObject()->data[$name] === $related->getObject()->data &&
-                        !$related->isModified)))
+                    ((!$relation->nested && $related->getPrimaryKey() === $this->getObject()->data[$name]) ||
+                        ($relation->nested && $this->getObject()->data[$name] === $related->getObject()->data &&
+                        !$related->isModified))) {
                     continue;
+                }
 
-                Yii::trace('Saving a BELONGS_TO relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                Yii::trace('Saving a relation "'.$name.'" of type ' . get_class($relation) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
 
                 /**
                  * Ensure $related is saved, so we have current PK
                  */
-                if (!$related->isModified || $related->saveInternal(null, $modelRelations))
-                    $this->appendRelation($related, $name);
+                if (!in_array($related, $modelRelations, true) && $related->isModified)
+                    $related->saveInternal(null, $modelRelations, $this);
+                $this->appendRelation($related, $name);
             }
             else
                 $queue[] = $name;
@@ -996,7 +987,7 @@ abstract class Document extends CModel {
         if ($this->getIsNewRecord() && empty($this->primaryKey)) {
             if (!$this->insert($attributes))
                 return false;
-            elseif (empty($queue))
+            elseif ($queue === array())
                 return true;
         }
 
@@ -1004,39 +995,33 @@ abstract class Document extends CModel {
          * @todo May need to separate saving from the process, until the end, to prevent repetitive saving
          */
         foreach ($queue as $name) {
-            $relationHash = array(get_class($this), $relations[$name]->className);
-            sort($relationHash);
-            /**
-             * Ensure relation hasn't already been processed
-             */
-            if (in_array($relationHash, $modelRelations) || !$this->isAttributeModified($name))
-                continue;
-            array_push($modelRelations, $relationHash);
-
-            $related = $this->getRelated($name);
-
-            /**
-             * If the relation is empty...
-             */
-            if ($related === null || $related === array()) {
-                /**
-                 * If the relation was already empty, skip
-                 */
-                if (!isset($this->getObject()->data[$name]) || $this->getObject()->data[$name] === null || $this->getObject()->data[$name] === array())
-                    continue;
-
-                /**
-                 * If the relation wasn't already empty, then it should be removed
-                 */
-                Yii::trace('Removing a ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
-                $this->clearRelation($name);
-                continue;
-            }
-
             /**
              * @var \ext\activedocument\Relation $relations[$name]
              */
             if ($relations[$name] instanceof HasManyRelation) {
+                /**
+                 * @var \ext\activedocument\Document[] $related
+                 */
+                $related = $this->getRelated($name);
+
+                /**
+                 * If the relation is empty...
+                 */
+                if ($related===null || $related===array()) {
+                    /**
+                     * If the relation was already empty, skip
+                     */
+                    if (!isset($this->getObject()->data[$name]) || $this->getObject()->data[$name] === null || $this->getObject()->data[$name] === array())
+                        continue;
+
+                    /**
+                     * If the relation wasn't already empty, then it should be removed
+                     */
+                    Yii::trace('Removing a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    $this->clearRelation($name);
+                    continue;
+                }
+
                 /**
                  * @var \ext\activedocument\Document $model
                  */
@@ -1045,31 +1030,56 @@ abstract class Document extends CModel {
                      * If the relation was already set, skip
                      */
                     if (isset($this->getObject()->data[$name]) && !$model->getIsNewRecord() &&
-                        (in_array($model->getPrimaryKey(), $this->getObject()->data[$name]) ||
+                        ((!$relations[$name]->nested && in_array($model->getPrimaryKey(), $this->getObject()->data[$name])) ||
                             ($relations[$name]->nested && array_key_exists($model->encodedPk, $this->getObject()->data[$name]) &&
-                            !$model->isModified)))
+                            !$model->isModified))) {
                         continue;
+                    }
 
-                    if ($model->isModified)
-                        $model->saveInternal(null, $modelRelations);
+                    if (!in_array($model, $modelRelations, true) && $model->isModified)
+                        $model->saveInternal(null, $modelRelations, $this);
 
-                    Yii::trace('Saving a HAS_MANY/MANY_MANY relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    Yii::trace('Saving a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->appendRelation($model, $name);
                 }
             } else {
                 /**
+                 * @var \ext\activedocument\Document $related
+                 */
+                $related = $this->getRelated($name);
+
+                /**
+                 * If the relation is empty...
+                 */
+                if ($related===null || $related==='') {
+                    /**
+                     * If the relation was already empty, skip
+                     */
+                    if (!isset($this->getObject()->data[$name]) || $this->getObject()->data[$name] === null || $this->getObject()->data[$name] === '')
+                        continue;
+
+                    /**
+                     * If the relation wasn't already empty, then it should be removed
+                     */
+                    Yii::trace('Removing a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    $this->clearRelation($name);
+                    continue;
+                }
+
+                /**
                  * If the relation was already set, skip
                  */
                 if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() &&
-                    ($related->getPrimaryKey() === $this->getObject()->data[$name] ||
+                    ((!$relations[$name]->nested && $related->getPrimaryKey() === $this->getObject()->data[$name]) ||
                         ($relations[$name]->nested && $this->getObject()->data[$name] === $related->getObject()->data &&
-                        !$related->isModified)))
+                        !$related->isModified))) {
                     continue;
+                }
 
-                if ($related->isModified)
-                    $related->saveInternal(null, $modelRelations);
+                if (!in_array($related, $modelRelations, true) && $related->isModified)
+                    $related->saveInternal(null, $modelRelations, $this);
 
-                Yii::trace('Saving a HAS_ONE relation in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                Yii::trace('Saving a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                 $this->appendRelation($related, $name);
             }
         }
@@ -1081,10 +1091,6 @@ abstract class Document extends CModel {
 
         return true;
     }
-
-    /*public function hasChanged() {
-        return !((array) $this->getObject()->data == (array) $this->getObjectData());
-    }*/
 
     /**
      * Pushes the $relationModel's PK into current object's relations
@@ -1120,15 +1126,15 @@ abstract class Document extends CModel {
                         $this->getObject()->data[$indexName] = array();
                     if (!isset($this->getObject()->data[$indexName][$indexValue]) || !is_array($this->getObject()->data[$indexName][$indexValue]))
                         $this->getObject()->data[$indexName][$indexValue] = array();
-                    $this->getObject()->data[$indexName][$indexValue][] = $pk;
+                    if (!in_array($pk, $this->getObject()->data[$indexName][$indexValue], true))
+                        $this->getObject()->data[$indexName][$indexValue][] = $pk;
                 }
             }
             if (!isset($this->getObject()->data[$relationName]) || !is_array($this->getObject()->data[$relationName]))
                 $this->getObject()->data[$relationName] = array();
             if ($relation->nested === true) {
-                if (!isset($this->getObject()->data[$relationName][$relationModel->getEncodedPk()]))
-                    $this->getObject()->data[$relationName][$relationModel->getEncodedPk()] = $relationModel->getObject()->data;
-            } elseif (!in_array($pk, $this->getObject()->data[$relationName]))
+                $this->getObject()->data[$relationName][$relationModel->getEncodedPk()] = $relationModel->getObject()->data;
+            } elseif (!in_array($pk, $this->getObject()->data[$relationName], true))
                 $this->getObject()->data[$relationName][] = $pk;
         } else
             $this->getObject()->data[$relationName] = $relation->nested ? $relationModel->getObject()->data : $pk;
@@ -1161,6 +1167,20 @@ abstract class Document extends CModel {
             $key = $relation->nested ? $relationModel->getEncodedPk() : array_search($pk, $this->getObject()->data[$relationName]);
             if ($key !== false)
                 unset($this->getObject()->data[$relationName][$key]);
+            /**
+             * Remove related model pk from autoindices
+             */
+            if ($relation->autoIndices !== array()) {
+                foreach ($relation->autoIndices as $index) {
+                    $indexName  = $relationName . '_' . $index;
+                    if (!isset($this->getObject()->data[$indexName]) || !is_array($this->getObject()->data[$indexName]))
+                        continue;
+                    array_walk($this->getObject()->data[$indexName], function(&$v,$k)use($pk){
+                        if(($_k = array_search($pk, $v))!==false)
+                            unset($v[$_k]);
+                    });
+                }
+            }
         } else
             unset($this->getObject()->data[$relationName]);
 
@@ -1174,6 +1194,22 @@ abstract class Document extends CModel {
      */
     public function clearRelation($relationName) {
         unset($this->getObject()->data[$relationName]);
+
+        /**
+         * @var \ext\activedocument\Relation
+         */
+        $relation = $this->getMetaData()->relations->$relationName;
+
+        /**
+         * Remove autoindices
+         */
+        if ($relation->autoIndices !== array()) {
+            foreach ($relation->autoIndices as $index) {
+                $indexName  = $relationName . '_' . $index;
+                if (isset($this->getObject()->data[$indexName]))
+                    unset($this->getObject()->data[$indexName]);
+            }
+        }
         $this->_modifiedAttributes[] = $relationName;
     }
 
@@ -1520,8 +1556,7 @@ abstract class Document extends CModel {
     }
 
     /**
-     * @param \ext\activedocument\Object $object
-     *
+     * @param Object $object
      * @return \ext\activedocument\Document
      */
     protected function instantiate(Object $object) {
@@ -1530,6 +1565,10 @@ abstract class Document extends CModel {
         return $document;
     }
 
+    /**
+     * @param $offset
+     * @return bool
+     */
     public function offsetExists($offset) {
         return $this->__isset($offset);
     }
