@@ -29,6 +29,41 @@ class Timestamp extends \ext\activedocument\Behavior {
      */
     public $timestampExpression;
 
+    public function attach($owner) {
+        parent::attach($owner);
+
+        if (!$this->createAttribute && !$this->updateAttribute) {
+            $msg = 'Model "{owner}" must define an count createAttribute and/or updateAttribute for it\'s "{self}" behavior!';
+            throw new \ext\activedocument\Exception(strtr($msg, array(
+                '{owner}' => get_class($this->getOwner()),
+                '{self}' => get_class($this),
+            )));
+        }
+
+        /**
+         * Only create attributes on finder initialization (when metadata is generated)
+         */
+        if ($this->getOwner()->getScenario() === '') {
+            $props = array();
+            if ($this->createAttribute)
+                $props[] = $this->createAttribute;
+            if ($this->updateAttribute)
+                $props[] = $this->updateAttribute;
+
+            array_map(array($this, 'createTimestampAttribute'), $props);
+        }
+    }
+
+    protected function createTimestampAttribute($propName) {
+        if (!$this->getOwner()->metaData->hasProperty($propName)) {
+            $this->getOwner()->metaData->addProperty($propName, array(
+                'name' => $propName,
+                'realType' => 'datetime',
+            ));
+            $this->getOwner()->metaData->properties->$propName->init();
+        }
+    }
+
     /**
      * Responds to {@link \ext\activedocument\Document::onBeforeSave} event.
      * Sets the values of the creation or modified attributes as configured
