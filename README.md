@@ -5,9 +5,9 @@ This library is functionally similar to Yii's own SQL-based Active Record class,
 ## Current Storage Drivers ##
 * Memory - temporary storage using PHP memory. Good for nested documents, and testing.
 * Riak - via the Yii ext, Riiak (currently packaged in with ActiveDocument)
+* MongoDB - via [PHP PECL extension](http://php.net/manual/en/mongo.installation.php)
 
 ## Planned Storage Drivers ##
-* MongoDB
 * CouchDB
 * Redis
 * SQL - may possibly add support for SQL, if only as a CActiveRecord wrapper (to enable seamlessly changing storage driver)
@@ -156,6 +156,9 @@ This quick example uses the Memory driver
              */
             $config = Config::model()->findByPk($pk);
 
+            /**
+             * Loop and print the related values
+             */
             foreach($config->options as $option) {
                 echo 'Option "'.$option->name.'": "'.$option->value.'"<br />';
             }
