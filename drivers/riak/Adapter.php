@@ -223,15 +223,16 @@ class Adapter extends \ext\activedocument\Adapter {
                      * @todo preg_quote may not be appropriate for js regex
                      * @todo lowercasing the strings may not be a good idea...
                      */
+                    $column['column'] = \CJavaScript::encode($column['column']);
                     if($column['escape'])
                         $column['keyword'] = preg_quote($column['keyword'], '/');
                     $mr->map('
                 function(value){
                     if(!value["not_found"]) {
                         var object = Riak.mapValuesJson(value)[0];
-                        if(object.hasOwnProperty("' . $column['column'] . '")) {
-                            var val = object["' . $column['column'] . '"].toLowerCase();
-                            if(' . ($column['like'] ? '' : '!') . '(val.match(/' . strtolower($column['keyword']) . '/))) {
+                        if(object.hasOwnProperty('. $column['column'] .')) {
+                            var val = object['. $column['column'] .'].toLowerCase();
+                            if('. ($column['like'] ? '' : '!') .'(val.match(/'. strtolower($column['keyword']) .'/))) {
                                 return [[value.bucket,value.key]];
                             }
                         }
@@ -243,12 +244,59 @@ class Adapter extends \ext\activedocument\Adapter {
 
             if (!empty($criteria->columns))
                 foreach ($criteria->columns as $column) {
+                    $column['column'] = \CJavaScript::encode($column['column']);
+                    $column['value'] = \CJavaScript::encode($column['value']);
                     $mr->map('
                 function(value){
                     if(!value.not_found) {
                         var object = Riak.mapValuesJson(value)[0];
-                        if(object.hasOwnProperty("' . $column['column'] . '")) {
-                            if(object["' . $column['column'] . '"] ' . $column['operator'] . ' "' . $column['value'] . '") {
+                        if(object.hasOwnProperty('. $column['column'] .')) {
+                            if(object['. $column['column'] .'] '. $column['operator'] .' '. $column['value'] .') {
+                                return [[value.bucket,value.key]];
+                            }
+                        }
+                    }
+                    return [];
+                }
+                    ');
+                }
+
+            /**
+             * @todo This function depends on ActiveDocument stored JS functions, disabled until available
+             * @todo Waiting on solution from Riak Users regarding running stored JS from bucket
+             */
+            /*if (!empty($criteria->array))
+                foreach ($criteria->array as $column) {
+                    $column['column'] = \CJavaScript::encode($column['column']);
+                    $column['values'] = \CJavaScript::encode($column['values']);
+                    $mr->map('
+                function(value){
+                    if(!value.not_found) {
+                        var object = Riak.mapValuesJson(value)[0];
+                        var arr = '. $column['values'] .';
+                        if(object.hasOwnProperty('. $column['column'] .')) {
+                            if('. ($column['like']?'':'!') .'ActiveDocument.inArray(object['. $column['column'] .'], arr)) {
+                                return [[value.bucket,value.key]];
+                            }
+                        }
+                    }
+                    return [];
+                }
+                    ');
+                }*/
+
+            if (!empty($criteria->between))
+                foreach ($criteria->between as $column) {
+                    $column['column'] = \CJavaScript::encode($column['column']);
+                    $column['valueStart'] = \CJavaScript::encode($column['valueStart']);
+                    $column['valueEnd'] = \CJavaScript::encode($column['valueEnd']);
+                    $mr->map('
+                function(value){
+                    if(!value.not_found) {
+                        var object = Riak.mapValuesJson(value)[0];
+                        if(object.hasOwnProperty('. $column['column'] .')) {
+                            if(object['. $column['column'] .'] >= '. $column['valueStart'] .'
+                             && object['. $column['column'] .'] <= '. $column['valueEnd'] .') {
                                 return [[value.bucket,value.key]];
                             }
                         }
@@ -258,18 +306,6 @@ class Adapter extends \ext\activedocument\Adapter {
                     ');
                 }
         }
-
-        /**
-         * @todo Implement array (in|not in) conditions
-         */
-        if (!empty($criteria->array))
-            ;
-
-        /**
-         * @todo Implement "between" conditions
-         */
-        if (!empty($criteria->between))
-            ;
 
         return $mr;
     }

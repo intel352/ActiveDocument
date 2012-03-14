@@ -205,8 +205,8 @@ class Adapter extends \ext\activedocument\Adapter {
                     if (!isset($object['value']->{$column['column']}))
                         return null;
 
-                    if ($object['value']->{$column['column']} > $column['valueStart']
-                        && $object['value']->{$column['column']} < $column['valueEnd'])
+                    if ($object['value']->{$column['column']} >= $column['valueStart']
+                        && $object['value']->{$column['column']} <= $column['valueEnd'])
                         return $object;
                     return null;
                 }, $values);
