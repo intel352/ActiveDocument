@@ -126,9 +126,9 @@ class Adapter extends \ext\activedocument\Adapter {
                     case 'reduce':
                         $values = array_reduce($values, $phase['function'], $phase['args']);
                         break;
-                    /**
-                     * @todo add array_filter?
-                     */
+                    case 'reduce':
+                        $values = array_filter($values, $phase['function']);
+                        break;
                 }
             }
 
@@ -144,6 +144,8 @@ class Adapter extends \ext\activedocument\Adapter {
                 $column['keyword'] = !$column['escape'] ? : preg_quote($column['keyword'], '/');
                 $values = array_map(function($object) use($column) {
                     if ($object['value'] === null)
+                        return null;
+                    if (!isset($object['value']->{$column['column']}))
                         return null;
 
                     $col = strtolower($object['value']->{$column['column']});
@@ -162,6 +164,8 @@ class Adapter extends \ext\activedocument\Adapter {
                 $values = array_map(function($object) use($column) {
                     if ($object['value'] === null)
                         return null;
+                    if (!isset($object['value']->{$column['column']}))
+                        return null;
 
                     $success = \Yii::app()->evaluateExpression('($columnValue ' . $column['operator'] . ' $userValue)',
                         array('columnValue' => $object['value']->{$column['column']}, 'userValue' => $column['value']));
@@ -172,16 +176,41 @@ class Adapter extends \ext\activedocument\Adapter {
             }
 
         /**
-         * @todo Implement array (in|not in) conditions
+         * Apply value [not] in array criteria
          */
         if (!empty($criteria->array))
-            ;
+            foreach ($criteria->array as $column) {
+                $values = array_map(function($object) use($column) {
+                    if ($object['value'] === null)
+                        return null;
+                    if (!isset($object['value']->{$column['column']}))
+                        return null;
+
+                    if ($column['like'] && in_array($object['value']->{$column['column']}, $column['value']))
+                        return $object;
+                    elseif (!$column['like'] && !in_array($object['value']->{$column['column']}, $column['value']))
+                        return $object;
+                    return null;
+                }, $values);
+            }
 
         /**
-         * @todo Implement "between" conditions
+         * Apply value between start/end criteria
          */
         if (!empty($criteria->between))
-            ;
+            foreach ($criteria->between as $column) {
+                $values = array_map(function($object) use($column) {
+                    if ($object['value'] === null)
+                        return null;
+                    if (!isset($object['value']->{$column['column']}))
+                        return null;
+
+                    if ($object['value']->{$column['column']} > $column['valueStart']
+                        && $object['value']->{$column['column']} < $column['valueEnd'])
+                        return $object;
+                    return null;
+                }, $values);
+            }
 
         /**
          * Filter out null records
