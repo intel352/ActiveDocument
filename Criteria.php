@@ -7,8 +7,24 @@ use \CComponent;
 class Criteria extends CComponent {
 
     public $container;
+    /**
+     * @var array the inputs that will be used for the query (typical for map/reduce queries)
+     * array(
+     *  array('container' => $container, 'key' => $key, 'data' => $data)
+     * )
+     */
     public $inputs = array();
+    /**
+     * @var array custom phases that should be executed (typically used for chaining multiple map & reduce phases)
+     * array(
+     *  array('phase' => $phase, 'function' => $function, 'args' => $args)
+     * )
+     */
     public $phases = array();
+    /**
+     * @var array the parameters that are to be bound to the condition.
+     * The keys are parameter placeholder names, and the values are parameter values.
+     */
     public $params = array();
     /**
      * Search conditions
@@ -58,6 +74,31 @@ class Criteria extends CComponent {
      * @var string how to sort the query results. This refers to the ORDER BY clause in an SQL statement.
      */
     public $order = '';
+    /**
+     * @var mixed scopes to apply
+     *
+     * This property is effective only when passing criteria to
+     * the one of the following methods:
+     * <ul>
+     * <li>{@link Document::find()}</li>
+     * <li>{@link Document::findAll()}</li>
+     * <li>{@link Document::findByPk()}</li>
+     * <li>{@link Document::findAllByPk()}</li>
+     * <li>{@link Document::findByAttributes()}</li>
+     * <li>{@link Document::findAllByAttributes()}</li>
+     * <li>{@link Document::count()}</li>
+     * </ul>
+     *
+     * Can be set to one of the following:
+     * <ul>
+     * <li>One scope: $criteria->scopes='scopeName';</li>
+     * <li>Multiple scopes: $criteria->scopes=array('scopeName1','scopeName2');</li>
+     * <li>Scope with parameters: $criteria->scopes=array('scopeName'=>array($params));</li>
+     * <li>Multiple scopes with parameters: $criteria->scopes=array('scopeName1'=>array($params1),'scopeName2'=>array($params2));</li>
+     * <li>Multiple scopes with the same name: array(array('scopeName'=>array($params1)),array('scopeName'=>array($params2)));</li>
+     * </ul>
+     */
+    public $scopes;
 
     /**
      * @param array $data Array criteria to initialize Criteria object

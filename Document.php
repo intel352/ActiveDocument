@@ -32,10 +32,10 @@ Yii::import('ext.activedocument.Relation', true);
 abstract class Document extends CModel {
 
     const BELONGS_TO = '\ext\activedocument\BelongsToRelation';
-    const HAS_ONE    = '\ext\activedocument\HasOneRelation';
-    const HAS_MANY   = '\ext\activedocument\HasManyRelation';
-    const MANY_MANY  = '\ext\activedocument\ManyManyRelation';
-    const STAT       = '\ext\activedocument\StatRelation';
+    const HAS_ONE = '\ext\activedocument\HasOneRelation';
+    const HAS_MANY = '\ext\activedocument\HasManyRelation';
+    const MANY_MANY = '\ext\activedocument\ManyManyRelation';
+    const STAT = '\ext\activedocument\StatRelation';
 
     /**
      * Override with component connection name, if not 'conn'
@@ -106,7 +106,7 @@ abstract class Document extends CModel {
             /**
              * @var \ext\activedocument\Document $document
              */
-            $document      = self::$_models[$className] = new $className(null);
+            $document = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
             return $document;
@@ -281,7 +281,7 @@ abstract class Document extends CModel {
     public function __set($name, $value) {
         if ($this->setAttribute($name, $value) === false) {
             if (isset($this->getMetaData()->relations->$name)) {
-                $this->_related[$name]       = $value;
+                $this->_related[$name] = $value;
                 $this->_modifiedAttributes[] = $name;
             } else
                 parent::__set($name, $value);
@@ -320,11 +320,11 @@ abstract class Document extends CModel {
                 return $this->getRelated($name, false, $parameters[0]);
         }
 
-        /* $scopes = $this->scopes();
-          if (isset($scopes[$name])) {
-          $this->getCriteria()->mergeWith($scopes[$name]);
-          return $this;
-          } */
+        $scopes = $this->scopes();
+        if (isset($scopes[$name])) {
+            $this->getCriteria()->mergeWith($scopes[$name]);
+            return $this;
+        }
 
         return parent::__call($name, $parameters);
     }
@@ -338,7 +338,7 @@ abstract class Document extends CModel {
      * @return array[]array[]string
      */
     public function getRelatedKeysByIndexName($name, $index) {
-        $index  = array_combine((array)$index, (array)$index);
+        $index = array_combine((array)$index, (array)$index);
         $object = $this->getObject();
         return array_map(function($index) use($name, $object) {
             return isset($object->data[$name . '_' . $index]) ? $object->data[$name . '_' . $index] : array();
@@ -355,9 +355,9 @@ abstract class Document extends CModel {
      * @return array
      */
     public function getRelatedKeysByIndex($name, array $indexes, array $keys = array()) {
-        $pks    = array();
+        $pks = array();
         $object = $this->getObject();
-        $class  = get_class($this);
+        $class = get_class($this);
         array_walk($indexes, function($indexValue, $index) use($name, $object, &$pks, $class) {
             $indexName = $name . '_' . $index;
             if ($indexValue === '' || $indexValue === null)
@@ -398,15 +398,16 @@ abstract class Document extends CModel {
      * @param bool   $refresh Whether to force reload objects from db
      * @param array  $params  Additional parameters to customize query
      * @param array  $keys    Array of keys to additionally filter by
+     * @param array|Criteria   $criteria    Optional criteria to further customize relation query
      *
      * @return array
      */
-    public function &getRelatedByIndex($name, array $indexes, $refresh = false, array $params = array(), array $keys = array()) {
+    public function &getRelatedByIndex($name, array $indexes, $refresh = false, array $params = array(), array $keys = array(), $criteria = array()) {
         $pks = $this->getRelatedKeysByIndex($name, $indexes, $keys);
         if ($pks === array())
             return $pks;
         Yii::trace('Requesting related records for relation ' . get_class($this) . '.' . $name . ', filtered by ' . \CVarDumper::dumpAsString($indexes), 'ext.activedocument.document.getRelatedByIndex');
-        $related = $this->getRelated($name, $refresh, $params, $pks);
+        $related = $this->getRelated($name, $refresh, $params, $pks, $criteria);
         return $related;
     }
 
@@ -419,17 +420,18 @@ abstract class Document extends CModel {
      * or an empty array.
      *
      * @param string  $name    the relation name (see {@link relations})
-     * @param boolean $refresh whether to reload the related objects from database. Defaults to false.
-     * @param array   $params  additional parameters that customize the query conditions as specified in the relation declaration.
-     * @param array   $keys    Array of encoded primary keys to filter by on HasMany or ManyMany relations
+     * @param boolean $refresh Optional whether to reload the related objects from database. Defaults to false.
+     * @param array   $params  Optional additional parameters that customize the query conditions as specified in the relation declaration.
+     * @param array   $keys    Optional Array of encoded primary keys to filter by on HasMany or ManyMany relations
+     * @param array|Criteria   $criteria    Optional criteria to further customize relation query
      *
      * @return mixed the related object(s).
      * @throws Exception if the relation is not specified in {@link relations}.
      */
-    public function &getRelated($name, $refresh = false, array $params = array(), array $keys = array()) {
+    public function &getRelated($name, $refresh = false, array $params = array(), array $keys = array(), $criteria = array()) {
         if ($keys !== array())
             $keys = array_map(array('self', 'stringify'), $keys);
-        if (!$refresh && $params === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
+        if (!$refresh && $params === array() && $criteria === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
             if ($keys !== array() && is_array($this->_related[$name])) {
                 $related = array_filter($this->_related[$name], function(Document $document) use($keys) {
                     return in_array($document->getEncodedPk(), $keys);
@@ -445,7 +447,7 @@ abstract class Document extends CModel {
 
         Yii::trace('lazy loading ' . get_class($this) . '.' . $name, 'ext.activedocument.document.getRelated');
         /**
-         * @var \ext\activedocument\BaseRelation
+         * @var BaseRelation $relation
          */
         $relation = $md->relations[$name];
 
@@ -454,7 +456,7 @@ abstract class Document extends CModel {
             return $_r;
         }
 
-        if ($params !== array() || ($relation instanceof HasManyRelation && $keys !== array())) { // dynamic query
+        if ($params !== array() || $criteria !== array() || ($relation instanceof HasManyRelation && $keys !== array())) { // dynamic query
             $exists = $this->hasRelated($name);
             if ($exists)
                 $save = $this->_related[$name];
@@ -463,18 +465,38 @@ abstract class Document extends CModel {
 
         $data = $this->getObject()->data;
         if (isset($data[$name])) {
-            if ($relation instanceof Relation && $relation->nested === true && $params === array()) {
+            $finder = Document::model($relation->className);
+            $_criteria = new Criteria();
+            /**
+             * @todo The solution below for merging relation settings into standard criteria, could use more elegance
+             */
+            $relCriteria = array();
+            array_map(function($key) use(&$relCriteria, $relation) {
+                if (isset($relation->$key))
+                    $relCriteria[$key] = $relation->$key;
+            }, array_keys($_criteria->toArray()));
+
+            if ($relCriteria !== array())
+                $_criteria->mergeWith($relCriteria);
+
+            if ($criteria !== array())
+                $_criteria->mergeWith($criteria);
+
+            if ($relation instanceof Relation && $relation->nested === true && $params === array() && $criteria === array()) {
                 Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.document.getRelated');
                 if ($relation instanceof HasManyRelation) {
                     if ($keys !== array())
                         $data[$name] = array_intersect_key($data[$name], array_flip($keys));
-                    array_walk($data[$name], function(&$rel, $key) use($relation) {
-                        $rel = Document::model($relation->className)->getContainer()->getObject($key, $rel, true);
+                    array_walk($data[$name], function(&$rel, $key) use($relation, $finder) {
+                        $rel = $finder->getContainer()->getObject($key, $rel, true);
                     });
-                    $this->_related[$name] = Document::model($relation->className)->populateDocuments($data[$name]);
+                    $this->_related[$name] = $finder->populateDocuments($data[$name]);
                 } else
-                    $this->_related[$name] = Document::model($relation->className)->populateDocument(
-                        Document::model($relation->className)->getContainer()->getObject(null, $data[$name], true)
+                    /**
+                     * @todo Need to verify that this solution works consistently...
+                     */
+                    $this->_related[$name] = $finder->populateDocument(
+                        $finder->getContainer()->getObject(null, $data[$name], true)
                     );
             } else {
                 if ($relation instanceof HasManyRelation) {
@@ -483,16 +505,11 @@ abstract class Document extends CModel {
                         $pks = array_keys($pks);
                     if ($keys !== array())
                         $pks = array_intersect($pks, $keys);
-                    $this->_related[$name] = Document::model($relation->className)
-                        ->findAllByPk($pks, null, $params);
-                    /* else if ($relation instanceof StatRelation)
-                 $this->_related[$name] = $relation->defaultValue; */
+                    $this->_related[$name] = $finder->findAllByPk($pks, $_criteria, $params);
+                } elseif ($relation instanceof StatRelation) {
+                    $this->_related[$name] = $finder->count($_criteria, $params);
                 } else
-                    /**
-                     * @todo Need solution for nested HAS_ONE
-                     */
-                    $this->_related[$name] = Document::model($relation->className)
-                        ->findByPk($data[$name], null, $params);
+                    $this->_related[$name] = $finder->findByPk($data[$name], $_criteria, $params);
             }
         }
 
@@ -505,7 +522,7 @@ abstract class Document extends CModel {
                 $this->_related[$name] = null;
         }
 
-        if ($params !== array() || ($relation instanceof HasManyRelation && $keys !== array())) {
+        if ($params !== array() || $criteria !== array() || ($relation instanceof HasManyRelation && $keys !== array())) {
             $results = $this->_related[$name];
             if ($exists)
                 $this->_related[$name] = $save;
@@ -612,6 +629,8 @@ abstract class Document extends CModel {
      *
      * @see getSafeAttributeNames
      * @see attributeNames
+     *
+     * @return mixed
      */
     public function setAttributes($values, $safeOnly = true) {
         if (!is_array($values))
@@ -624,7 +643,7 @@ abstract class Document extends CModel {
         Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.Document');
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
             $this->_related = array();
-            $object         = $this->getObject();
+            $object = $this->getObject();
             foreach ($this->getMetaData()->attributes as $name => $attr) {
                 if (property_exists($this, $name) && isset($object->data[$name]))
                     $this->$name = $object->data[$name];
@@ -662,7 +681,7 @@ abstract class Document extends CModel {
             $isNull = true;
             $return = array();
             foreach ($pk as $pkField) {
-                $isNull           = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
+                $isNull = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
                 $return[$pkField] = is_null($this->{$pkField}) ? '' : $this->{$pkField};
             }
 
@@ -866,12 +885,12 @@ abstract class Document extends CModel {
     public function validate($data = null, $clearErrors = true) {
         if ($data === null) {
             $attributes = null;
-            $newData    = array();
+            $newData = array();
         } else {
             if (is_string($data))
                 $data = array($data);
             $attributeNames = $this->attributeNames();
-            $attributes     = array_intersect($data, $attributeNames);
+            $attributes = array_intersect($data, $attributeNames);
 
             if ($attributes === array())
                 $attributes = null;
@@ -931,7 +950,7 @@ abstract class Document extends CModel {
         array_push($modelRelations, $this);
 
         $relations = $this->getMetaData()->relations;
-        $queue     = array();
+        $queue = array();
 
         foreach ($relations as $name => $relation) {
             if (!$this->hasRelated($name))
@@ -946,7 +965,7 @@ abstract class Document extends CModel {
                 /**
                  * If the relation is empty...
                  */
-                if ($related===null || $related==='') {
+                if ($related === null || $related === '') {
                     /**
                      * If the relation was already empty, skip
                      */
@@ -956,7 +975,7 @@ abstract class Document extends CModel {
                     /**
                      * If the relation wasn't already empty, then it should be removed
                      */
-                    Yii::trace('Removing a relation "'.$name.'" of type ' . get_class($relation) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    Yii::trace('Removing a relation "' . $name . '" of type ' . get_class($relation) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->clearRelation($name);
                     continue;
                 }
@@ -967,11 +986,12 @@ abstract class Document extends CModel {
                 if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() &&
                     ((!$relation->nested && $related->getPrimaryKey() === $this->getObject()->data[$name]) ||
                         ($relation->nested && $this->getObject()->data[$name] === $related->getObject()->data &&
-                        !$related->isModified))) {
+                            !$related->isModified))
+                ) {
                     continue;
                 }
 
-                Yii::trace('Saving a relation "'.$name.'" of type ' . get_class($relation) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                Yii::trace('Saving a relation "' . $name . '" of type ' . get_class($relation) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
 
                 /**
                  * Ensure $related is saved, so we have current PK
@@ -1007,7 +1027,7 @@ abstract class Document extends CModel {
                 /**
                  * If the relation is empty...
                  */
-                if ($related===null || $related===array()) {
+                if ($related === null || $related === array()) {
                     /**
                      * If the relation was already empty, skip
                      */
@@ -1017,7 +1037,7 @@ abstract class Document extends CModel {
                     /**
                      * If the relation wasn't already empty, then it should be removed
                      */
-                    Yii::trace('Removing a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    Yii::trace('Removing a relation "' . $name . '" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->clearRelation($name);
                     continue;
                 }
@@ -1032,14 +1052,15 @@ abstract class Document extends CModel {
                     if (isset($this->getObject()->data[$name]) && !$model->getIsNewRecord() &&
                         ((!$relations[$name]->nested && in_array($model->getPrimaryKey(), $this->getObject()->data[$name])) ||
                             ($relations[$name]->nested && array_key_exists($model->encodedPk, $this->getObject()->data[$name]) &&
-                            !$model->isModified))) {
+                                !$model->isModified))
+                    ) {
                         continue;
                     }
 
                     if (!in_array($model, $modelRelations, true) && $model->isModified)
                         $model->saveInternal(null, $modelRelations, $this);
 
-                    Yii::trace('Saving a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    Yii::trace('Saving a relation "' . $name . '" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->appendRelation($model, $name);
                 }
             } else {
@@ -1051,7 +1072,7 @@ abstract class Document extends CModel {
                 /**
                  * If the relation is empty...
                  */
-                if ($related===null || $related==='') {
+                if ($related === null || $related === '') {
                     /**
                      * If the relation was already empty, skip
                      */
@@ -1061,7 +1082,7 @@ abstract class Document extends CModel {
                     /**
                      * If the relation wasn't already empty, then it should be removed
                      */
-                    Yii::trace('Removing a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                    Yii::trace('Removing a relation "' . $name . '" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->clearRelation($name);
                     continue;
                 }
@@ -1072,14 +1093,15 @@ abstract class Document extends CModel {
                 if (isset($this->getObject()->data[$name]) && !$related->getIsNewRecord() &&
                     ((!$relations[$name]->nested && $related->getPrimaryKey() === $this->getObject()->data[$name]) ||
                         ($relations[$name]->nested && $this->getObject()->data[$name] === $related->getObject()->data &&
-                        !$related->isModified))) {
+                            !$related->isModified))
+                ) {
                     continue;
                 }
 
                 if (!in_array($related, $modelRelations, true) && $related->isModified)
                     $related->saveInternal(null, $modelRelations, $this);
 
-                Yii::trace('Saving a relation "'.$name.'" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
+                Yii::trace('Saving a relation "' . $name . '" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                 $this->appendRelation($related, $name);
             }
         }
@@ -1117,7 +1139,7 @@ abstract class Document extends CModel {
              */
             if ($relation->autoIndices !== array()) {
                 foreach ($relation->autoIndices as $index) {
-                    $indexName  = $relationName . '_' . $index;
+                    $indexName = $relationName . '_' . $index;
                     $indexValue = $relationModel->getAttribute($index);
                     if ($indexValue === '' || $indexValue === null)
                         continue;
@@ -1172,11 +1194,11 @@ abstract class Document extends CModel {
              */
             if ($relation->autoIndices !== array()) {
                 foreach ($relation->autoIndices as $index) {
-                    $indexName  = $relationName . '_' . $index;
+                    $indexName = $relationName . '_' . $index;
                     if (!isset($this->getObject()->data[$indexName]) || !is_array($this->getObject()->data[$indexName]))
                         continue;
-                    array_walk($this->getObject()->data[$indexName], function(&$v,$k)use($pk){
-                        if(($_k = array_search($pk, $v))!==false)
+                    array_walk($this->getObject()->data[$indexName], function(&$v, $k) use($pk) {
+                        if (($_k = array_search($pk, $v)) !== false)
                             unset($v[$_k]);
                     });
                 }
@@ -1205,7 +1227,7 @@ abstract class Document extends CModel {
          */
         if ($relation->autoIndices !== array()) {
             foreach ($relation->autoIndices as $index) {
-                $indexName  = $relationName . '_' . $index;
+                $indexName = $relationName . '_' . $index;
                 if (isset($this->getObject()->data[$indexName]))
                     unset($this->getObject()->data[$indexName]);
             }
@@ -1383,6 +1405,11 @@ abstract class Document extends CModel {
             return false;
     }
 
+    /**
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array $params
+     * @return int
+     */
     public function count($condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.count()', 'ext.activedocument.Document');
         $criteria = $this->buildCriteria($condition, $params);
@@ -1394,26 +1421,31 @@ abstract class Document extends CModel {
      * Checks whether there is row satisfying the specified condition.
      * See {@link find()} for detailed explanation about $condition and $params.
      *
-     * @param mixed $condition Criteria object or array
-     * @param array $params    parameters to be bound to an SQL statement.
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array            $params    Optional.
      *
      * @return boolean whether there is row satisfying the specified condition.
      */
     public function exists($condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.exists()', 'ext.activedocument.Document');
-        $criteria        = $this->buildCriteria($condition, $params);
+        $criteria = $this->buildCriteria($condition, $params);
         $criteria->limit = 1;
         $this->applyScopes($criteria);
         return $this->_container->count($criteria) > 0;
     }
 
+    /**
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array            $params    Optional.
+     * @return Document|null
+     */
     public function find($condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.find()', 'ext.activedocument.Document');
         return $this->query($this->buildCriteria($condition, $params));
     }
 
     /**
-     * @param string|int|array $key
+     * @param mixed $key
      * @param Criteria|array   $condition Optional. Default: null
      * @param array            $params    Optional.
      *
@@ -1424,24 +1456,69 @@ abstract class Document extends CModel {
         return $this->query($this->buildCriteria($condition, $params), false, array($key));
     }
 
+    /**
+     * Finds a single document that has the specified attribute values.
+     * See {@link find()} for detailed explanation about $condition and $params.
+     * @param array $attributes list of attribute values (indexed by attribute names) that the documents should match.
+     * An attribute value can be an array which will be used to generate an array (IN) condition.
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array            $params    Optional.
+     * @return Document|null the record found. Null if none is found.
+     */
+    public function findByAttributes($attributes, $condition = null, array $params = array()) {
+        Yii::trace(get_class($this) . '.findByAttributes()', 'ext.activedocument.Document');
+        return $this->query($this->buildCriteria($condition, $params, $attributes), false);
+    }
+
+    /**
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array            $params    Optional.
+     * @return array|Document|null
+     */
     public function findAll($condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.findAll()', 'ext.activedocument.Document');
         return $this->query($this->buildCriteria($condition, $params), true);
     }
 
+    /**
+     * @param array $keys
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array            $params    Optional.
+     * @return array|Document|null
+     */
     public function findAllByPk(array $keys, $condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.findAllByPk()', 'ext.activedocument.Document');
         return $this->query($this->buildCriteria($condition, $params), true, $keys);
     }
 
-    protected function query($criteria, $all = false, array $keys = array()) {
+    /**
+     * Finds all documents that have the specified attribute values.
+     * See {@link find()} for detailed explanation about $condition and $params.
+     * @param array $attributes list of attribute values (indexed by attribute names) that the documents should match.
+     * An attribute value can be an array which will be used to generate an array (IN) condition.
+     * @param Criteria|array   $condition Optional. Default: null
+     * @param array            $params    Optional.
+     * @return Document|null the record found. Null if none is found.
+     */
+    public function findAllByAttributes($attributes, $condition = null, array $params = array()) {
+        Yii::trace(get_class($this) . '.findAllByAttributes()', 'ext.activedocument.Document');
+        return $this->query($this->buildCriteria($condition, $params, $attributes), true);
+    }
+
+    /**
+     * @param Criteria $criteria
+     * @param bool $all
+     * @param array $keys
+     * @return array|Document|null
+     */
+    protected function query(Criteria $criteria, $all = false, array $keys = array()) {
         $this->beforeFind();
         $this->applyScopes($criteria);
 
         if (!empty($keys))
             $keys = array_map(array('self', 'stringify'), $keys);
 
-        $objects       = array();
+        $objects = array();
         $emptyCriteria = new Criteria;
         if ($criteria == $emptyCriteria && !empty($keys)) {
             /**
@@ -1471,7 +1548,13 @@ abstract class Document extends CModel {
         return $all ? $this->populateDocuments($objects) : $this->populateDocument(array_shift($objects));
     }
 
-    protected function buildCriteria($condition, $params = array()) {
+    /**
+     * @param Criteria|array   $condition
+     * @param array $params
+     * @param array $attributes
+     * @return Criteria
+     */
+    protected function buildCriteria($condition, array $params = array(), array $attributes = array()) {
         if (is_array($condition))
             $criteria = new Criteria($condition);
         else if ($condition instanceof Criteria)
@@ -1479,8 +1562,19 @@ abstract class Document extends CModel {
         else
             $criteria = new Criteria;
 
-        if (!empty($params))
+        if ($params !== array())
             $criteria->mergeWith(array('params' => $params));
+
+        if ($attributes !== array())
+            array_walk($attributes, function($val, $key) use($criteria) {
+                /**
+                 * @var Criteria $criteria
+                 */
+                if (is_array($val))
+                    $criteria->addArrayCondition($key, $val);
+                else
+                    $criteria->addColumnCondition(array($key => $val));
+            });
 
         return $criteria;
     }
@@ -1491,45 +1585,48 @@ abstract class Document extends CModel {
      * It then resets {@link criteria} to be null.
      *
      * @param Criteria $criteria the query criteria. This parameter may be modified by merging {@link criteria}.
+     * @return self
      */
-    public function applyScopes(&$criteria) {
-        /* if (!empty($criteria->scopes)) {
-          $scs = $this->scopes();
-          $c = $this->getCriteria();
-          foreach ((array) $criteria->scopes as $k => $v) {
-          if (is_integer($k)) {
-          if (is_string($v)) {
-          if (isset($scs[$v])) {
-          $c->mergeWith($scs[$v], true);
-          continue;
-          }
-          $scope = $v;
-          $params = array();
-          } else if (is_array($v)) {
-          $scope = key($v);
-          $params = current($v);
-          }
-          } else if (is_string($k)) {
-          $scope = $k;
-          $params = $v;
-          }
+    public function applyScopes(Criteria &$criteria) {
+        if (!empty($criteria->scopes)) {
+            $scs = $this->scopes();
+            $c = $this->getCriteria();
+            foreach ((array)$criteria->scopes as $k => $v) {
+                if (is_integer($k)) {
+                    if (is_string($v)) {
+                        if (isset($scs[$v])) {
+                            $c->mergeWith($scs[$v], true);
+                            continue;
+                        }
+                        $scope = $v;
+                        $params = array();
+                    } else if (is_array($v)) {
+                        $scope = key($v);
+                        $params = current($v);
+                    }
+                } else if (is_string($k)) {
+                    $scope = $k;
+                    $params = $v;
+                }
 
-          call_user_func_array(array($this, $scope), (array) $params);
-          }
-          } */
+                call_user_func_array(array($this, $scope), (array)$params);
+            }
+        }
 
         if (isset($c) || ($c = $this->getCriteria(false)) !== null) {
             $c->mergeWith($criteria);
             $criteria = $c;
             $this->_c = null;
         }
+
+        return $this;
     }
 
     /**
      * @param Object $object
      * @param bool   $callAfterFind
      *
-     * @return \ext\activedocument\Document
+     * @return Document
      */
     public function populateDocument(Object $object, $callAfterFind = true) {
         $document = $this->instantiate($object);
@@ -1542,6 +1639,12 @@ abstract class Document extends CModel {
         return $document;
     }
 
+    /**
+     * @param Object[] $objects
+     * @param bool $callAfterFind
+     * @param string $index Document attribute to index the results by
+     * @return Document[]
+     */
     public function populateDocuments(array $objects, $callAfterFind = true, $index = null) {
         $documents = array();
         foreach ($objects as $object) {
@@ -1557,10 +1660,10 @@ abstract class Document extends CModel {
 
     /**
      * @param Object $object
-     * @return \ext\activedocument\Document
+     * @return Document
      */
     protected function instantiate(Object $object) {
-        $class    = get_class($this);
+        $class = get_class($this);
         $document = new $class(null);
         return $document;
     }

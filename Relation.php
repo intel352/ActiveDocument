@@ -21,12 +21,61 @@ abstract class BaseRelation extends CComponent {
      * @var string name of the related document class
      */
     public $className;
-
+    /**
+     * @var array the inputs that will be used for the query (typical for map/reduce queries)
+     * array(
+     *  array('container' => $container, 'key' => $key, 'data' => $data)
+     * )
+     */
+    public $inputs = array();
+    /**
+     * @var array custom phases that should be executed (typically used for chaining multiple map & reduce phases)
+     * array(
+     *  array('phase' => $phase, 'function' => $function, 'args' => $args)
+     * )
+     */
+    public $phases = array();
     /**
      * @var array the parameters that are to be bound to the condition.
      * The keys are parameter placeholder names, and the values are parameter values.
      */
     public $params = array();
+    /**
+     * Search conditions
+     * array(
+     *  array('column' => $column, 'keyword' => $keyword, 'like' => $like, 'escape' => $escape)
+     * )
+     *
+     * @var array
+     */
+    public $search = array();
+    /**
+     * Column conditions
+     * array(
+     *  array('column' => $name, 'value' => $value, 'operator' => $operator)
+     * )
+     *
+     * @var array
+     */
+    public $columns = array();
+    /**
+     * Array conditions (column [not] in array)
+     * array(
+     *  array('column' => $column, 'values' => $values, 'like' => $like)
+     * )
+     *
+     * @var array
+     */
+    public $array = array();
+    /**
+     * Between conditions
+     * array(
+     *  array('column' => $column, 'valueStart' => $valueStart, 'valueEnd' => $valueEnd)
+     * )
+     *
+     * @var array
+     */
+    public $between = array();
 
     /**
      * @var string Order by clause. For {@link \ext\activedocument\Relation} descendant classes
@@ -66,14 +115,17 @@ abstract class BaseRelation extends CComponent {
     /**
      * Merges this relation with a criteria specified dynamically.
      *
-     * @param array $criteria the dynamically specified criteria
+     * @param array|Criteria $criteria the dynamically specified criteria
+     * @return self
      */
     public function mergeWith($criteria) {
         if ($criteria instanceof Criteria)
             $criteria = $criteria->toArray();
 
-        if (isset($criteria['params']) && $this->params !== $criteria['params'])
-            $this->params = array_merge($this->params, $criteria['params']);
+        foreach (array('inputs', 'phases', 'params', 'search', 'columns', 'array', 'between') as $arr) {
+            if (isset($criteria[$arr]) && (array)$this->$arr !== (array)$criteria[$arr])
+                $this->$arr = array_merge((array)$this->$arr, (array)$criteria[$arr]);
+        }
 
         if (isset($criteria['order']) && $this->order !== $criteria['order']) {
             if ($this->order === '')
@@ -84,6 +136,8 @@ abstract class BaseRelation extends CComponent {
 
         if (isset($criteria['scopes']))
             $this->setScopes($criteria['scopes']);
+
+        return $this;
     }
 
 }
@@ -97,12 +151,6 @@ abstract class BaseRelation extends CComponent {
 class StatRelation extends BaseRelation {
 
     /**
-     * @var string the statistical expression. Defaults to 'COUNT(*)', meaning
-     * the count of child objects.
-     */
-    public $select = 'COUNT(*)';
-
-    /**
      * @var mixed the default value to be assigned to those records that do not
      * receive a statistical query result. Defaults to 0.
      */
@@ -112,6 +160,7 @@ class StatRelation extends BaseRelation {
      * Merges this relation with a criteria specified dynamically.
      *
      * @param array $criteria the dynamically specified criteria
+     * @return self
      */
     public function mergeWith($criteria) {
         if ($criteria instanceof Criteria)
@@ -120,6 +169,8 @@ class StatRelation extends BaseRelation {
 
         if (isset($criteria['defaultValue']))
             $this->defaultValue = $criteria['defaultValue'];
+
+        return $this;
     }
 
 }
@@ -168,6 +219,7 @@ abstract class Relation extends BaseRelation {
      * Merges this relation with a criteria specified dynamically.
      *
      * @param array $criteria the dynamically specified criteria
+     * @return self
      */
     public function mergeWith($criteria) {
         if ($criteria instanceof Criteria)
@@ -180,6 +232,8 @@ abstract class Relation extends BaseRelation {
 
         if (isset($criteria['together']))
             $this->together = $criteria['together'];
+
+        return $this;
     }
 
 }
@@ -249,6 +303,7 @@ class HasManyRelation extends Relation {
      * Merges this relation with a criteria specified dynamically.
      *
      * @param array $criteria the dynamically specified criteria
+     * @return self
      */
     public function mergeWith($criteria) {
         if ($criteria instanceof Criteria)
@@ -262,6 +317,8 @@ class HasManyRelation extends Relation {
 
         if (isset($criteria['index']))
             $this->index = $criteria['index'];
+
+        return $this;
     }
 
 }
