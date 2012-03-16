@@ -36,7 +36,6 @@ class MetaData extends CComponent {
      * @var \ArrayObject
      */
     protected $_classMeta;
-    protected $_docAttributeRegex = '/\@(?<attribute>\w+)(?<!property|property-read|property-write|var)\s+(?:(\$)\w+\:\s)?\s*(?<value>[^\s]+)\s+\2?\s*(?<comment>.*)?/';
 
     /**
      * @var \ArrayObject
@@ -84,22 +83,13 @@ class MetaData extends CComponent {
             return $this->_classMeta;
         $reflectionClass = $this->getReflectionClass();
 
-        /**
-         * @todo Temporarily disabling, need logic so this only executes when required
-        $properties = $relations = array();
-        $parentClass = $reflectionClass->getParentClass();
-        if($parentClass->getNamespaceName()!='ext\activedocument') {
-        $properties = Document::model($parentClass->getName())->getMetaData()->getProperties();
-        $relations = Document::model($parentClass->getName())->getMetaData()->getRelations();
-        }
-         */
         $this->_classMeta = new \ArrayObject(array(
             'properties' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
             'relations' => new \ArrayObject(array(), \ArrayObject::ARRAY_AS_PROPS),
         ), \ArrayObject::ARRAY_AS_PROPS);
 
         /**
-         * Parse class phpdoc (also detects magic properties)
+         * Parse class phpdoc
          */
         $this->parsePhpDoc($reflectionClass->getDocComment());
 
@@ -165,8 +155,6 @@ class MetaData extends CComponent {
             /**
              * Parse class meta
              */
-            if ($property === null)
-                array_walk($phpdoc, array($this, 'parsePhpDocAttributes'));
             array_walk($phpdoc, array($this, 'parsePhpDocProperties'), $property);
         }
     }
@@ -196,21 +184,6 @@ class MetaData extends CComponent {
                 $var = trim($var, " \t\r\n\0\x0B*");
             });
         return $phpdoc;
-    }
-
-    /**
-     * Parses phpdoc text to find general pattern of "attribute value comment"
-     *
-     * @param string $string Line of phpdoc
-     * @param int    $index
-     */
-    protected function parsePhpDocAttributes($string, $index) {
-        if (preg_match($this->_docAttributeRegex, $string, $matches)) {
-            $matches = array_intersect_key($matches, array('attribute' => null, 'value' => null, 'comment' => null));
-
-            if (!array_key_exists($matches['attribute'], $this->_classMeta))
-                $this->_classMeta->{$matches['attribute']} = new \ArrayObject($matches, \ArrayObject::ARRAY_AS_PROPS);
-        }
     }
 
     /**

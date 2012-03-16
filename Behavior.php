@@ -2,6 +2,8 @@
 
 namespace ext\activedocument;
 
+use \ext\activedocument\events\Event;
+
 /**
  * Behavior
  *
@@ -36,8 +38,8 @@ class Behavior extends \CModelBehavior {
     /**
      * Responds to {@link \ext\activedocument\Document::onBeforeSave} event.
      * Override this method if you want to handle the corresponding event of the {@link \CBehavior::owner owner}.
-     * You may set {@link \ext\activedocument\Event::isValid} to be false to quit the saving process.
-     * @param \ext\activedocument\Event $event event parameter
+     * You may set {@link \ext\activedocument\events\Event::isValid} to be false to quit the saving process.
+     * @param \ext\activedocument\events\Event $event event parameter
      */
     public function beforeSave(Event $event) {
 
@@ -55,8 +57,8 @@ class Behavior extends \CModelBehavior {
     /**
      * Responds to {@link \ext\activedocument\Document::onBeforeDelete} event.
      * Override this method if you want to handle the corresponding event of the {@link \CBehavior::owner owner}.
-     * You may set {@link \ext\activedocument\Event::isValid} to be false to quit the deletion process.
-     * @param \ext\activedocument\Event $event event parameter
+     * You may set {@link \ext\activedocument\events\Event::isValid} to be false to quit the deletion process.
+     * @param \ext\activedocument\events\Event $event event parameter
      */
     public function beforeDelete(Event $event) {
 

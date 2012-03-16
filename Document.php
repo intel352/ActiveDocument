@@ -4,7 +4,9 @@ namespace ext\activedocument;
 
 use \Yii,
 \CModel,
-\CEvent;
+\CEvent,
+\ext\activedocument\events\Event
+;
 
 Yii::import('ext.activedocument.Relation', true);
 
@@ -273,6 +275,13 @@ abstract class Document extends CModel {
         else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name);
         else {
+            if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'get'.$name) &&
+                $this->hasEvent('onGetMissingAttribute') && $this->getEventHandlers('onGetMissingAttribute')->getCount()>0) {
+                $this->onGetMissingAttribute($event=new events\Magic($this, events\Magic::GET, $name));
+                if ($event->handled)
+                    return $event->result;
+            }
+
             $return = parent::__get($name);
             return $return;
         }
@@ -283,8 +292,15 @@ abstract class Document extends CModel {
             if (isset($this->getMetaData()->relations->$name)) {
                 $this->_related[$name] = $value;
                 $this->_modifiedAttributes[] = $name;
-            } else
+            } else {
+                if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'set'.$name) &&
+                    $this->hasEvent('onSetMissingAttribute') && $this->getEventHandlers('onSetMissingAttribute')->getCount()>0) {
+                    $this->onSetMissingAttribute($event=new events\Magic($this, events\Magic::SET, $name, $value));
+                    if ($event->handled)
+                        return $event->result;
+                }
                 parent::__set($name, $value);
+            }
         }
     }
 
@@ -297,8 +313,15 @@ abstract class Document extends CModel {
             return true;
         else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name) !== null;
-        else
+        else {
+            if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'get'.$name) &&
+                $this->hasEvent('onIssetMissingAttribute') && $this->getEventHandlers('onIssetMissingAttribute')->getCount()>0) {
+                $this->onIssetMissingAttribute($event=new events\Magic($this, events\Magic::SETIS, $name));
+                if ($event->handled)
+                    return $event->result;
+            }
             return parent::__isset($name);
+        }
     }
 
     public function __unset($name) {
@@ -308,8 +331,15 @@ abstract class Document extends CModel {
         } else if (isset($this->getMetaData()->relations->$name)) {
             unset($this->_related[$name]);
             $this->_modifiedAttributes[] = $name;
-        } else
+        } else {
+            if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'set'.$name) &&
+                $this->hasEvent('onUnsetMissingAttribute') && $this->getEventHandlers('onUnsetMissingAttribute')->getCount()>0) {
+                $this->onUnsetMissingAttribute($event=new events\Magic($this, events\Magic::SETUN, $name));
+                if ($event->handled)
+                    return $event->result;
+            }
             parent::__unset($name);
+        }
     }
 
     public function __call($name, $parameters) {
@@ -326,7 +356,34 @@ abstract class Document extends CModel {
             return $this;
         }
 
+        if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) &&
+            $this->hasEvent('onCallMissingMethod') && $this->getEventHandlers('onCallMissingMethod')->getCount()>0) {
+            $this->onCallMissingMethod($event=new events\Magic($this, events\Magic::CALL, $name, $parameters));
+            if ($event->handled)
+                return $event->result;
+        }
+
         return parent::__call($name, $parameters);
+    }
+
+    public function onGetMissingAttribute(events\Magic $event) {
+        $this->raiseEvent('onGetMissingAttribute', $event);
+    }
+
+    public function onSetMissingAttribute(events\Magic $event) {
+        $this->raiseEvent('onSetMissingAttribute', $event);
+    }
+
+    public function onIssetMissingAttribute(events\Magic $event) {
+        $this->raiseEvent('onIssetMissingAttribute', $event);
+    }
+
+    public function onUnsetMissingAttribute(events\Magic $event) {
+        $this->raiseEvent('onUnsetMissingAttribute', $event);
+    }
+
+    public function onCallMissingMethod(events\Magic $event) {
+        $this->raiseEvent('onCallMissingMethod', $event);
     }
 
     /**
@@ -376,7 +433,7 @@ abstract class Document extends CModel {
 
     public function getRelatedKeys($name) {
         $relation = $this->getMetaData()->relations[$name];
-        if (!isset($this->getObject()->data[$name]))
+        if (!isset($this->getObject()->data[$name]) || !($relation instanceof Relation))
             return null;
 
         if ($relation instanceof HasManyRelation) {
@@ -385,7 +442,11 @@ abstract class Document extends CModel {
                 $pks = array_keys($pks);
             return $pks;
         } else {
-            return self::stringify($this->getObject()->data[$name]);
+            if ($relation->nested === true) {
+                if ($obj = $this->getRelated($name))
+                    return $obj->getEncodedPk();
+            }else
+                return self::stringify($this->getObject()->data[$name]);
         }
         return null;
     }
@@ -431,7 +492,7 @@ abstract class Document extends CModel {
     public function &getRelated($name, $refresh = false, array $params = array(), array $keys = array(), $criteria = array()) {
         if ($keys !== array())
             $keys = array_map(array('self', 'stringify'), $keys);
-        if (!$refresh && $params === array() && $criteria === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related)))
+        if (!$refresh && $params === array() && $criteria === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related))) {
             if ($keys !== array() && is_array($this->_related[$name])) {
                 $related = array_filter($this->_related[$name], function(Document $document) use($keys) {
                     return in_array($document->getEncodedPk(), $keys);
@@ -440,6 +501,7 @@ abstract class Document extends CModel {
             } else {
                 return $this->_related[$name];
             }
+        }
 
         $md = $this->getMetaData();
         if (!isset($md->relations[$name]))
@@ -508,8 +570,20 @@ abstract class Document extends CModel {
                     $this->_related[$name] = $finder->findAllByPk($pks, $_criteria, $params);
                 } elseif ($relation instanceof StatRelation) {
                     $this->_related[$name] = $finder->count($_criteria, $params);
-                } else
-                    $this->_related[$name] = $finder->findByPk($data[$name], $_criteria, $params);
+                } else {
+                    if ($relation->nested === true) {
+                        /**
+                         * @todo Need to verify that this solution works consistently...
+                         */
+                        $obj = $finder->populateDocument(
+                            $finder->getContainer()->getObject(null, $data[$name], true)
+                        );
+                        if ($obj!==null)
+                            $this->_related[$name] = $finder->findByPk($obj->getEncodedPk(), $_criteria, $params);
+                    } else {
+                        $this->_related[$name] = $finder->findByPk($data[$name], $_criteria, $params);
+                    }
+                }
             }
         }
 
