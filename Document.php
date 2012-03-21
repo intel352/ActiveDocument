@@ -5,8 +5,7 @@ namespace ext\activedocument;
 use \Yii,
 \CModel,
 \CEvent,
-\ext\activedocument\events\Event
-;
+\ext\activedocument\events\Event;
 
 Yii::import('ext.activedocument.Relation', true);
 
@@ -34,10 +33,10 @@ Yii::import('ext.activedocument.Relation', true);
 abstract class Document extends CModel {
 
     const BELONGS_TO = '\ext\activedocument\BelongsToRelation';
-    const HAS_ONE = '\ext\activedocument\HasOneRelation';
-    const HAS_MANY = '\ext\activedocument\HasManyRelation';
-    const MANY_MANY = '\ext\activedocument\ManyManyRelation';
-    const STAT = '\ext\activedocument\StatRelation';
+    const HAS_ONE    = '\ext\activedocument\HasOneRelation';
+    const HAS_MANY   = '\ext\activedocument\HasManyRelation';
+    const MANY_MANY  = '\ext\activedocument\ManyManyRelation';
+    const STAT       = '\ext\activedocument\StatRelation';
 
     /**
      * Override with component connection name, if not 'conn'
@@ -108,7 +107,7 @@ abstract class Document extends CModel {
             /**
              * @var \ext\activedocument\Document $document
              */
-            $document = self::$_models[$className] = new $className(null);
+            $document      = self::$_models[$className] = new $className(null);
             $document->_md = new MetaData($document);
             $document->attachBehaviors($document->behaviors());
             return $document;
@@ -138,6 +137,7 @@ abstract class Document extends CModel {
         ));
 
         $this->resetModified();
+        return $this;
     }
 
     /**
@@ -152,27 +152,44 @@ abstract class Document extends CModel {
     /**
      * The owner/parent of this Document (if any)
      *
-     * @param \ext\activedocument\Document $owner
+     * @param Document|null $owner
+     *
+     * @return Document
      */
     public function setOwner(Document $owner = null) {
         $this->_owner = $owner;
+        return $this;
     }
 
+    /**
+     * @return Document
+     */
     protected function newObject() {
         $this->setObject($this->loadObject());
+        return $this;
     }
 
+    /**
+     * @param null $key
+     *
+     * @return Object
+     */
     protected function loadObject($key = null) {
         return $this->getContainer()->getObject($key, null, $this->getIsNewRecord());
     }
 
     /**
-     * @return \ext\activedocument\Object
+     * @return Object
      */
     public function getObject() {
         return $this->_object;
     }
 
+    /**
+     * @param Object $object
+     *
+     * @return Document
+     */
     public function setObject(Object $object) {
         $this->_object = $object;
         if (!$this->getIsNewRecord()) {
@@ -182,14 +199,24 @@ abstract class Document extends CModel {
             $this->_object->data = $this->getMetaData()->attributeDefaults;
             $this->setAttributes($this->_object->data, false);
         }
+        return $this;
     }
 
+    /**
+     * @return bool
+     */
     public function getIsNewRecord() {
         return $this->_new;
     }
 
+    /**
+     * @param bool $value
+     *
+     * @return Document
+     */
     public function setIsNewRecord($value) {
         $this->_new = $value;
+        return $this;
     }
 
     /**
@@ -224,9 +251,9 @@ abstract class Document extends CModel {
     /**
      * Sets the modified state for the object to be false.
      *
-     * @param      string $attr If supplied, only the specified attribute is reset.
+     * @param string $attr If supplied, only the specified attribute is reset.
      *
-     * @return     void
+     * @return Document
      */
     public function resetModified($attr = null) {
         if ($attr !== null) {
@@ -236,8 +263,13 @@ abstract class Document extends CModel {
         } else {
             $this->_modifiedAttributes = array();
         }
+        return $this;
     }
 
+    /**
+     * @param bool $createIfNull
+     * @return Criteria
+     */
     public function getCriteria($createIfNull = true) {
         if ($this->_c === null) {
             if (($c = $this->defaultScope()) !== array() || $createIfNull)
@@ -246,19 +278,33 @@ abstract class Document extends CModel {
         return $this->_c;
     }
 
+    /**
+     * @param Criteria $criteria
+     * @return Document
+     */
     public function setCriteria($criteria) {
         $this->_c = $criteria;
+        return $this;
     }
 
+    /**
+     * @return array
+     */
     public function defaultScope() {
         return array();
     }
 
+    /**
+     * @return Document
+     */
     public function resetScope() {
         $this->_c = new Criteria();
         return $this;
     }
 
+    /**
+     * @return array
+     */
     public function __sleep() {
         $this->_md = null;
         return array_keys((array)$this);
@@ -275,9 +321,11 @@ abstract class Document extends CModel {
         else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name);
         else {
-            if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'get'.$name) &&
-                $this->hasEvent('onGetMissingAttribute') && $this->getEventHandlers('onGetMissingAttribute')->getCount()>0) {
-                $this->onGetMissingAttribute($event=new events\Magic($this, events\Magic::GET, $name));
+            if ((strncasecmp($name, 'on', 2) !== 0 || !$this->hasEvent($name)) && !method_exists($this, 'get' . $name) &&
+                $this->hasEvent('onGetMissingAttribute') && $this->getEventHandlers('onGetMissingAttribute')
+                ->getCount() > 0
+            ) {
+                $this->onGetMissingAttribute($event = new events\Magic($this, events\Magic::GET, $name));
                 if ($event->handled)
                     return $event->result;
             }
@@ -290,12 +338,14 @@ abstract class Document extends CModel {
     public function __set($name, $value) {
         if ($this->setAttribute($name, $value) === false) {
             if (isset($this->getMetaData()->relations->$name)) {
-                $this->_related[$name] = $value;
+                $this->_related[$name]       = $value;
                 $this->_modifiedAttributes[] = $name;
             } else {
-                if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'set'.$name) &&
-                    $this->hasEvent('onSetMissingAttribute') && $this->getEventHandlers('onSetMissingAttribute')->getCount()>0) {
-                    $this->onSetMissingAttribute($event=new events\Magic($this, events\Magic::SET, $name, $value));
+                if ((strncasecmp($name, 'on', 2) !== 0 || !$this->hasEvent($name)) && !method_exists($this, 'set' . $name) &&
+                    $this->hasEvent('onSetMissingAttribute') && $this->getEventHandlers('onSetMissingAttribute')
+                    ->getCount() > 0
+                ) {
+                    $this->onSetMissingAttribute($event = new events\Magic($this, events\Magic::SET, $name, $value));
                     if ($event->handled)
                         return $event->result;
                 }
@@ -314,9 +364,11 @@ abstract class Document extends CModel {
         else if (isset($this->getMetaData()->relations->$name))
             return $this->getRelated($name) !== null;
         else {
-            if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'get'.$name) &&
-                $this->hasEvent('onIssetMissingAttribute') && $this->getEventHandlers('onIssetMissingAttribute')->getCount()>0) {
-                $this->onIssetMissingAttribute($event=new events\Magic($this, events\Magic::SETIS, $name));
+            if ((strncasecmp($name, 'on', 2) !== 0 || !$this->hasEvent($name)) && !method_exists($this, 'get' . $name) &&
+                $this->hasEvent('onIssetMissingAttribute') && $this->getEventHandlers('onIssetMissingAttribute')
+                ->getCount() > 0
+            ) {
+                $this->onIssetMissingAttribute($event = new events\Magic($this, events\Magic::SETIS, $name));
                 if ($event->handled)
                     return $event->result;
             }
@@ -332,9 +384,11 @@ abstract class Document extends CModel {
             unset($this->_related[$name]);
             $this->_modifiedAttributes[] = $name;
         } else {
-            if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) && !method_exists($this, 'set'.$name) &&
-                $this->hasEvent('onUnsetMissingAttribute') && $this->getEventHandlers('onUnsetMissingAttribute')->getCount()>0) {
-                $this->onUnsetMissingAttribute($event=new events\Magic($this, events\Magic::SETUN, $name));
+            if ((strncasecmp($name, 'on', 2) !== 0 || !$this->hasEvent($name)) && !method_exists($this, 'set' . $name) &&
+                $this->hasEvent('onUnsetMissingAttribute') && $this->getEventHandlers('onUnsetMissingAttribute')
+                ->getCount() > 0
+            ) {
+                $this->onUnsetMissingAttribute($event = new events\Magic($this, events\Magic::SETUN, $name));
                 if ($event->handled)
                     return $event->result;
             }
@@ -356,9 +410,10 @@ abstract class Document extends CModel {
             return $this;
         }
 
-        if ((strncasecmp($name,'on',2)!==0 || !$this->hasEvent($name)) &&
-            $this->hasEvent('onCallMissingMethod') && $this->getEventHandlers('onCallMissingMethod')->getCount()>0) {
-            $this->onCallMissingMethod($event=new events\Magic($this, events\Magic::CALL, $name, $parameters));
+        if ((strncasecmp($name, 'on', 2) !== 0 || !$this->hasEvent($name)) &&
+            $this->hasEvent('onCallMissingMethod') && $this->getEventHandlers('onCallMissingMethod')->getCount() > 0
+        ) {
+            $this->onCallMissingMethod($event = new events\Magic($this, events\Magic::CALL, $name, $parameters));
             if ($event->handled)
                 return $event->result;
         }
@@ -395,7 +450,7 @@ abstract class Document extends CModel {
      * @return array[]array[]string
      */
     public function getRelatedKeysByIndexName($name, $index) {
-        $index = array_combine((array)$index, (array)$index);
+        $index  = array_combine((array)$index, (array)$index);
         $object = $this->getObject();
         return array_map(function($index) use($name, $object) {
             return isset($object->data[$name . '_' . $index]) ? $object->data[$name . '_' . $index] : array();
@@ -412,9 +467,9 @@ abstract class Document extends CModel {
      * @return array
      */
     public function getRelatedKeysByIndex($name, array $indexes, array $keys = array()) {
-        $pks = array();
+        $pks    = array();
         $object = $this->getObject();
-        $class = get_class($this);
+        $class  = get_class($this);
         array_walk($indexes, function($indexValue, $index) use($name, $object, &$pks, $class) {
             $indexName = $name . '_' . $index;
             if ($indexValue === '' || $indexValue === null)
@@ -445,7 +500,7 @@ abstract class Document extends CModel {
             if ($relation->nested === true) {
                 if ($obj = $this->getRelated($name))
                     return $obj->getEncodedPk();
-            }else
+            } else
                 return self::stringify($this->getObject()->data[$name]);
         }
         return null;
@@ -454,11 +509,11 @@ abstract class Document extends CModel {
     /**
      * Returns related records filtered by indexed values, only applicable to HasMany or ManyMany relations
      *
-     * @param string $name    The relation name (see {@link relations})
-     * @param array  $indexes Array of 'indexName'=>'searchValue' to search by
-     * @param bool   $refresh Whether to force reload objects from db
-     * @param array  $params  Additional parameters to customize query
-     * @param array  $keys    Array of keys to additionally filter by
+     * @param string           $name        The relation name (see {@link relations})
+     * @param array            $indexes     Array of 'indexName'=>'searchValue' to search by
+     * @param bool             $refresh     Whether to force reload objects from db
+     * @param array            $params      Additional parameters to customize query
+     * @param array            $keys        Array of keys to additionally filter by
      * @param array|Criteria   $criteria    Optional criteria to further customize relation query
      *
      * @return array
@@ -480,10 +535,10 @@ abstract class Document extends CModel {
      * If the relation is HAS_MANY or MANY_MANY, it will return an array of objects
      * or an empty array.
      *
-     * @param string  $name    the relation name (see {@link relations})
-     * @param boolean $refresh Optional whether to reload the related objects from database. Defaults to false.
-     * @param array   $params  Optional additional parameters that customize the query conditions as specified in the relation declaration.
-     * @param array   $keys    Optional Array of encoded primary keys to filter by on HasMany or ManyMany relations
+     * @param string           $name        the relation name (see {@link relations})
+     * @param boolean          $refresh     Optional whether to reload the related objects from database. Defaults to false.
+     * @param array            $params      Optional additional parameters that customize the query conditions as specified in the relation declaration.
+     * @param array            $keys        Optional Array of encoded primary keys to filter by on HasMany or ManyMany relations
      * @param array|Criteria   $criteria    Optional criteria to further customize relation query
      *
      * @return mixed the related object(s).
@@ -527,7 +582,7 @@ abstract class Document extends CModel {
 
         $data = $this->getObject()->data;
         if (isset($data[$name])) {
-            $finder = Document::model($relation->className);
+            $finder    = Document::model($relation->className);
             $_criteria = new Criteria();
             /**
              * @todo The solution below for merging relation settings into standard criteria, could use more elegance
@@ -578,7 +633,7 @@ abstract class Document extends CModel {
                         $obj = $finder->populateDocument(
                             $finder->getContainer()->getObject(null, $data[$name], true)
                         );
-                        if ($obj!==null)
+                        if ($obj !== null)
                             $this->_related[$name] = $finder->findByPk($obj->getEncodedPk(), $_criteria, $params);
                     } else {
                         $this->_related[$name] = $finder->findByPk($data[$name], $_criteria, $params);
@@ -717,7 +772,7 @@ abstract class Document extends CModel {
         Yii::trace(get_class($this) . '.refresh()', 'ext.activedocument.Document');
         if (!$this->getIsNewRecord() && $this->getObject()->reload()) {
             $this->_related = array();
-            $object = $this->getObject();
+            $object         = $this->getObject();
             foreach ($this->getMetaData()->attributes as $name => $attr) {
                 if (property_exists($this, $name) && isset($object->data[$name]))
                     $this->$name = $object->data[$name];
@@ -755,7 +810,7 @@ abstract class Document extends CModel {
             $isNull = true;
             $return = array();
             foreach ($pk as $pkField) {
-                $isNull = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
+                $isNull           = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
                 $return[$pkField] = is_null($this->{$pkField}) ? '' : $this->{$pkField};
             }
 
@@ -959,12 +1014,12 @@ abstract class Document extends CModel {
     public function validate($data = null, $clearErrors = true) {
         if ($data === null) {
             $attributes = null;
-            $newData = array();
+            $newData    = array();
         } else {
             if (is_string($data))
                 $data = array($data);
             $attributeNames = $this->attributeNames();
-            $attributes = array_intersect($data, $attributeNames);
+            $attributes     = array_intersect($data, $attributeNames);
 
             if ($attributes === array())
                 $attributes = null;
@@ -1023,8 +1078,11 @@ abstract class Document extends CModel {
             $attributes = null;
         array_push($modelRelations, $this);
 
+        if (!$this->beforeSaveInternal())
+            return false;
+
         $relations = $this->getMetaData()->relations;
-        $queue = array();
+        $queue     = array();
 
         foreach ($relations as $name => $relation) {
             if (!$this->hasRelated($name))
@@ -1081,8 +1139,10 @@ abstract class Document extends CModel {
         if ($this->getIsNewRecord() && empty($this->primaryKey)) {
             if (!$this->insert($attributes))
                 return false;
-            elseif ($queue === array())
+            elseif ($queue === array()) {
+                $this->afterSaveInternal();
                 return true;
+            }
         }
 
         /**
@@ -1185,6 +1245,8 @@ abstract class Document extends CModel {
                 return false;
         }
 
+        $this->afterSaveInternal();
+
         return true;
     }
 
@@ -1213,7 +1275,7 @@ abstract class Document extends CModel {
              */
             if ($relation->autoIndices !== array()) {
                 foreach ($relation->autoIndices as $index) {
-                    $indexName = $relationName . '_' . $index;
+                    $indexName  = $relationName . '_' . $index;
                     $indexValue = $relationModel->getAttribute($index);
                     if ($indexValue === '' || $indexValue === null)
                         continue;
@@ -1317,6 +1379,14 @@ abstract class Document extends CModel {
         $this->raiseEvent('onAfterSave', $event);
     }
 
+    public function onBeforeSaveInternal(Event $event) {
+        $this->raiseEvent('onBeforeSaveInternal', $event);
+    }
+
+    public function onAfterSaveInternal(\CEvent $event) {
+        $this->raiseEvent('onAfterSaveInternal', $event);
+    }
+
     public function onBeforeDelete(Event $event) {
         $this->raiseEvent('onBeforeDelete', $event);
     }
@@ -1346,6 +1416,22 @@ abstract class Document extends CModel {
     protected function afterSave() {
         if ($this->hasEventHandler('onAfterSave'))
             $this->onAfterSave(new \CEvent($this));
+        $this->resetModified();
+    }
+
+    protected function beforeSaveInternal() {
+        if ($this->hasEventHandler('onBeforeSaveInternal')) {
+            $event = new Event($this);
+            $this->onBeforeSaveInternal($event);
+            return $event->isValid;
+        }
+        else
+            return true;
+    }
+
+    protected function afterSaveInternal() {
+        if ($this->hasEventHandler('onAfterSaveInternal'))
+            $this->onAfterSaveInternal(new \CEvent($this));
         $this->resetModified();
     }
 
@@ -1454,7 +1540,7 @@ abstract class Document extends CModel {
         $this->setAttributes($attributes, false);
         $this->ensurePk();
         if ($this->store(array_keys($attributes))) {
-            $this->_pk = $this->_object->getKey();
+            $this->_pk                 = $this->_object->getKey();
             $this->_modifiedAttributes = array_diff(array_unique($this->_modifiedAttributes), array_keys($attributes));
             return true;
         }
@@ -1481,7 +1567,8 @@ abstract class Document extends CModel {
 
     /**
      * @param Criteria|array   $condition Optional. Default: null
-     * @param array $params
+     * @param array            $params
+     *
      * @return int
      */
     public function count($condition = null, array $params = array()) {
@@ -1502,7 +1589,7 @@ abstract class Document extends CModel {
      */
     public function exists($condition = null, array $params = array()) {
         Yii::trace(get_class($this) . '.exists()', 'ext.activedocument.Document');
-        $criteria = $this->buildCriteria($condition, $params);
+        $criteria        = $this->buildCriteria($condition, $params);
         $criteria->limit = 1;
         $this->applyScopes($criteria);
         return $this->_container->count($criteria) > 0;
@@ -1511,6 +1598,7 @@ abstract class Document extends CModel {
     /**
      * @param Criteria|array   $condition Optional. Default: null
      * @param array            $params    Optional.
+     *
      * @return Document|null
      */
     public function find($condition = null, array $params = array()) {
@@ -1519,7 +1607,7 @@ abstract class Document extends CModel {
     }
 
     /**
-     * @param mixed $key
+     * @param mixed            $key
      * @param Criteria|array   $condition Optional. Default: null
      * @param array            $params    Optional.
      *
@@ -1533,10 +1621,12 @@ abstract class Document extends CModel {
     /**
      * Finds a single document that has the specified attribute values.
      * See {@link find()} for detailed explanation about $condition and $params.
-     * @param array $attributes list of attribute values (indexed by attribute names) that the documents should match.
-     * An attribute value can be an array which will be used to generate an array (IN) condition.
-     * @param Criteria|array   $condition Optional. Default: null
-     * @param array            $params    Optional.
+     *
+     * @param array            $attributes list of attribute values (indexed by attribute names) that the documents should match.
+     *                                     An attribute value can be an array which will be used to generate an array (IN) condition.
+     * @param Criteria|array   $condition  Optional. Default: null
+     * @param array            $params     Optional.
+     *
      * @return Document|null the record found. Null if none is found.
      */
     public function findByAttributes($attributes, $condition = null, array $params = array()) {
@@ -1547,6 +1637,7 @@ abstract class Document extends CModel {
     /**
      * @param Criteria|array   $condition Optional. Default: null
      * @param array            $params    Optional.
+     *
      * @return array|Document|null
      */
     public function findAll($condition = null, array $params = array()) {
@@ -1555,9 +1646,10 @@ abstract class Document extends CModel {
     }
 
     /**
-     * @param array $keys
+     * @param array            $keys
      * @param Criteria|array   $condition Optional. Default: null
      * @param array            $params    Optional.
+     *
      * @return array|Document|null
      */
     public function findAllByPk(array $keys, $condition = null, array $params = array()) {
@@ -1568,10 +1660,12 @@ abstract class Document extends CModel {
     /**
      * Finds all documents that have the specified attribute values.
      * See {@link find()} for detailed explanation about $condition and $params.
-     * @param array $attributes list of attribute values (indexed by attribute names) that the documents should match.
-     * An attribute value can be an array which will be used to generate an array (IN) condition.
-     * @param Criteria|array   $condition Optional. Default: null
-     * @param array            $params    Optional.
+     *
+     * @param array            $attributes list of attribute values (indexed by attribute names) that the documents should match.
+     *                                     An attribute value can be an array which will be used to generate an array (IN) condition.
+     * @param Criteria|array   $condition  Optional. Default: null
+     * @param array            $params     Optional.
+     *
      * @return Document|null the record found. Null if none is found.
      */
     public function findAllByAttributes($attributes, $condition = null, array $params = array()) {
@@ -1581,8 +1675,9 @@ abstract class Document extends CModel {
 
     /**
      * @param Criteria $criteria
-     * @param bool $all
-     * @param array $keys
+     * @param bool     $all
+     * @param array    $keys
+     *
      * @return array|Document|null
      */
     protected function query(Criteria $criteria, $all = false, array $keys = array()) {
@@ -1592,7 +1687,7 @@ abstract class Document extends CModel {
         if (!empty($keys))
             $keys = array_map(array('self', 'stringify'), $keys);
 
-        $objects = array();
+        $objects       = array();
         $emptyCriteria = new Criteria;
         if ($criteria == $emptyCriteria && !empty($keys)) {
             /**
@@ -1600,12 +1695,7 @@ abstract class Document extends CModel {
              * $objects = $this->getContainer()->getObjects($keys);
              */
             foreach ($keys as $key) {
-                /**
-                 * @todo This is temporary fix for issue where empty object is returned...
-                 */
-                $obj = $this->loadObject($key);
-                if (!empty($obj->objectData))
-                    $objects[] = $obj;
+                $objects[] = $this->loadObject($key);
             }
         } else {
             if (!$all)
@@ -1616,7 +1706,14 @@ abstract class Document extends CModel {
             $objects = $this->getContainer()->find($criteria);
         }
 
-        if (empty($objects))
+        /**
+         * @todo This is temporary fix for issue where empty object is returned...
+         */
+        array_filter($objects, function(\ext\activedocument\Object $obj){
+            return !($obj->data===null || $obj->data===array());
+        });
+
+        if ($objects===array())
             return $all ? array() : null;
 
         return $all ? $this->populateDocuments($objects) : $this->populateDocument(array_shift($objects));
@@ -1624,8 +1721,9 @@ abstract class Document extends CModel {
 
     /**
      * @param Criteria|array   $condition
-     * @param array $params
-     * @param array $attributes
+     * @param array            $params
+     * @param array            $attributes
+     *
      * @return Criteria
      */
     protected function buildCriteria($condition, array $params = array(), array $attributes = array()) {
@@ -1659,12 +1757,13 @@ abstract class Document extends CModel {
      * It then resets {@link criteria} to be null.
      *
      * @param Criteria $criteria the query criteria. This parameter may be modified by merging {@link criteria}.
+     *
      * @return self
      */
     public function applyScopes(Criteria &$criteria) {
         if (!empty($criteria->scopes)) {
             $scs = $this->scopes();
-            $c = $this->getCriteria();
+            $c   = $this->getCriteria();
             foreach ((array)$criteria->scopes as $k => $v) {
                 if (is_integer($k)) {
                     if (is_string($v)) {
@@ -1672,14 +1771,14 @@ abstract class Document extends CModel {
                             $c->mergeWith($scs[$v], true);
                             continue;
                         }
-                        $scope = $v;
+                        $scope  = $v;
                         $params = array();
                     } else if (is_array($v)) {
-                        $scope = key($v);
+                        $scope  = key($v);
                         $params = current($v);
                     }
                 } else if (is_string($k)) {
-                    $scope = $k;
+                    $scope  = $k;
                     $params = $v;
                 }
 
@@ -1715,8 +1814,9 @@ abstract class Document extends CModel {
 
     /**
      * @param Object[] $objects
-     * @param bool $callAfterFind
-     * @param string $index Document attribute to index the results by
+     * @param bool     $callAfterFind
+     * @param string   $index Document attribute to index the results by
+     *
      * @return Document[]
      */
     public function populateDocuments(array $objects, $callAfterFind = true, $index = null) {
@@ -1734,16 +1834,18 @@ abstract class Document extends CModel {
 
     /**
      * @param Object $object
+     *
      * @return Document
      */
     protected function instantiate(Object $object) {
-        $class = get_class($this);
+        $class    = get_class($this);
         $document = new $class(null);
         return $document;
     }
 
     /**
      * @param $offset
+     *
      * @return bool
      */
     public function offsetExists($offset) {

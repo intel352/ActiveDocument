@@ -158,11 +158,11 @@ class Adapter extends \ext\activedocument\Adapter {
             /**
              * Set default sorting criteria if sort order is empty
              */
-            $sortFunction = "values";
+            $sortFunction = 'values';
             if (empty($criteria->order))
-                $sortFunction = "Riak.reduceSort(values, arg['sort'])";
+                $sortFunction = 'Riak.reduceSort(values, arg["sort"])';
 
-            $mr->reduce("function(values,arg){return Riak.reduceSlice($sortFunction, arg['slice']);}", array('arg' => $sliceCriteria));
+            $mr->reduce('function(values,arg){return Riak.reduceSlice('.$sortFunction.', arg["slice"]);}', array('arg' => $sliceCriteria));
         }
 
         /**

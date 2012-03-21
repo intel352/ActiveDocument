@@ -11,7 +11,7 @@ class Object extends \ext\activedocument\Object {
 
     /**
      * @param bool $new
-     * @return \ext\activedocument\drivers\riak\Object
+     * @return \riiak\Object
      */
     protected function loadObjectInstance($new=true) {
         if ($this->getKey() !== null && !$new)
