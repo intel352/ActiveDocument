@@ -12,11 +12,6 @@ Yii::import('ext.activedocument.Relation', true);
 /**
  * Document
  *
- * @todo    Relations are almost in place, need mechanism for determining how keys will be managed
- *
- * @version $Version: 1.0.dev.56 $
- * @author  $Author: intel352 $
- *
  * @property \ext\activedocument\Document $owner
  * @property \ext\activedocument\Object $object
  * @property bool $isNewRecord
@@ -1709,7 +1704,7 @@ abstract class Document extends CModel {
         /**
          * @todo This is temporary fix for issue where empty object is returned...
          */
-        array_filter($objects, function(\ext\activedocument\Object $obj){
+        $objects = array_filter($objects, function(\ext\activedocument\Object $obj){
             return !($obj->data===null || $obj->data===array());
         });
 
