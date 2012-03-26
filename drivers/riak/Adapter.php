@@ -209,7 +209,7 @@ class Adapter extends \ext\activedocument\Adapter {
         if (0 < count($criteria->inputs)) {
             $mr->map('
                 function(value){
-                    if(!value["not_found"]) {
+                    if(!value.not_found && !value.values[0].metadata["X-Riak-Deleted"]) {
                         var object = Riak.mapValuesJson(value)[0];
                             return [[value.bucket,value.key]];
                     }
@@ -228,7 +228,7 @@ class Adapter extends \ext\activedocument\Adapter {
                         $column['keyword'] = preg_quote($column['keyword'], '/');
                     $mr->map('
                 function(value){
-                    if(!value["not_found"]) {
+                    if(!value.not_found && !value.values[0].metadata["X-Riak-Deleted"]) {
                         var object = Riak.mapValuesJson(value)[0];
                         if(object.hasOwnProperty('. $column['column'] .')) {
                             var val = object['. $column['column'] .'].toLowerCase();
@@ -248,7 +248,7 @@ class Adapter extends \ext\activedocument\Adapter {
                     $column['value'] = \CJavaScript::encode($column['value']);
                     $mr->map('
                 function(value){
-                    if(!value.not_found) {
+                    if(!value.not_found && !value.values[0].metadata["X-Riak-Deleted"]) {
                         var object = Riak.mapValuesJson(value)[0];
                         if(object.hasOwnProperty('. $column['column'] .')) {
                             if(object['. $column['column'] .'] '. $column['operator'] .' '. $column['value'] .') {
@@ -271,7 +271,7 @@ class Adapter extends \ext\activedocument\Adapter {
                     $column['values'] = \CJavaScript::encode($column['values']);
                     $mr->map('
                 function(value){
-                    if(!value.not_found) {
+                    if(!value.not_found && !value.values[0].metadata["X-Riak-Deleted"]) {
                         var object = Riak.mapValuesJson(value)[0];
                         var arr = '. $column['values'] .';
                         if(object.hasOwnProperty('. $column['column'] .')) {
@@ -292,7 +292,7 @@ class Adapter extends \ext\activedocument\Adapter {
                     $column['valueEnd'] = \CJavaScript::encode($column['valueEnd']);
                     $mr->map('
                 function(value){
-                    if(!value.not_found) {
+                    if(!value.not_found && !value.values[0].metadata["X-Riak-Deleted"]) {
                         var object = Riak.mapValuesJson(value)[0];
                         if(object.hasOwnProperty('. $column['column'] .')) {
                             if(object['. $column['column'] .'] >= '. $column['valueStart'] .'
