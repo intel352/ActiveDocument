@@ -2,12 +2,25 @@
 
 namespace ext\activedocument;
 
-use \CActiveForm,
-    \CHtml;
+use CHtml, Yii;
 
-class Form extends CActiveForm {
+Yii::registerAutoloader(function($class) {
+    if (strcasecmp($class, 'ext\activedocument\FakeInheritForm') === 0) {
+        if (Yii::getPathOfAlias('bootstrap.widgets.BootActiveForm')
+            && Yii::import('bootstrap.widgets.BootActiveForm', true) && class_exists('BootActiveForm')
+        ) {
+            class_alias('BootActiveForm', 'ext\activedocument\FakeInheritForm');
+        } else {
+            class_alias('CActiveForm', 'ext\activedocument\FakeInheritForm');
+        }
+    }
+});
 
-    public function error($model, $attribute, $htmlOptions=array(), $enableAjaxValidation=true, $enableClientValidation=true) {
+/** @noinspection PhpUndefinedClassInspection */
+/** @noinspection PhpUndefinedNamespaceInspection */
+class Form extends \ext\activedocument\FakeInheritForm {
+
+    public function error($model, $attribute, $htmlOptions = array(), $enableAjaxValidation = true, $enableClientValidation = true) {
         /**
          * Determine input id
          */
