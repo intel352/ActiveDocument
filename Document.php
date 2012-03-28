@@ -220,7 +220,7 @@ abstract class Document extends CModel {
      * @return     boolean True if the object has been modified.
      */
     public function getIsModified() {
-        return !empty($this->_modifiedAttributes);
+        return $this->getModifiedAttributes()!==array();
     }
 
     /**
@@ -231,7 +231,7 @@ abstract class Document extends CModel {
      * @return     boolean True if $attr has been modified.
      */
     public function isAttributeModified($attr) {
-        return in_array($attr, $this->_modifiedAttributes);
+        return in_array($attr, $this->getModifiedAttributes());
     }
 
     /**
@@ -240,7 +240,16 @@ abstract class Document extends CModel {
      * @return     array A unique list of the modified attribute names for this object.
      */
     public function getModifiedAttributes() {
-        return array_unique($this->_modifiedAttributes);
+        return array_unique(
+            array_merge(
+                $this->_modifiedAttributes, array_keys(
+                    array_diff_assoc(
+                        array_intersect_key($this->getObject()->data, $this->getMetaData()->getAttributes(true)),
+                        $this->getAttributes()
+                    )
+                )
+            )
+        );
     }
 
     /**
@@ -263,6 +272,7 @@ abstract class Document extends CModel {
 
     /**
      * @param bool $createIfNull
+     *
      * @return Criteria
      */
     public function getCriteria($createIfNull = true) {
@@ -275,6 +285,7 @@ abstract class Document extends CModel {
 
     /**
      * @param Criteria $criteria
+     *
      * @return Document
      */
     public function setCriteria($criteria) {
@@ -1704,11 +1715,11 @@ abstract class Document extends CModel {
         /**
          * @todo This is temporary fix for issue where empty object is returned...
          */
-        $objects = array_filter($objects, function(\ext\activedocument\Object $obj){
-            return !($obj->data===null || $obj->data===array());
+        $objects = array_filter($objects, function(\ext\activedocument\Object $obj) {
+            return !($obj->data === null || $obj->data === array());
         });
 
-        if ($objects===array())
+        if ($objects === array())
             return $all ? array() : null;
 
         return $all ? $this->populateDocuments($objects) : $this->populateDocument(array_shift($objects));
