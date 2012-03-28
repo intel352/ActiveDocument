@@ -1123,8 +1123,8 @@ abstract class Document extends CModel {
                 /**
                  * Ensure $related is saved, so we have current PK
                  */
-                if (!in_array($related, $modelRelations, true) && $related->isModified)
-                    $related->saveInternal(null, $modelRelations, $this);
+                if ($related->getIsNewRecord() || (!in_array($related, $modelRelations, true) && $related->isModified))
+                    $related->saveInternal(null, $modelRelations);
                 $this->appendRelation($related, $name);
             }
             else
@@ -1186,8 +1186,8 @@ abstract class Document extends CModel {
                         continue;
                     }
 
-                    if (!in_array($model, $modelRelations, true) && $model->isModified)
-                        $model->saveInternal(null, $modelRelations, $this);
+                    if ($model->getIsNewRecord() || (!in_array($model, $modelRelations, true) && $model->isModified))
+                        $model->saveInternal(null, $modelRelations);
 
                     Yii::trace('Saving a relation "' . $name . '" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                     $this->appendRelation($model, $name);
@@ -1227,8 +1227,8 @@ abstract class Document extends CModel {
                     continue;
                 }
 
-                if (!in_array($related, $modelRelations, true) && $related->isModified)
-                    $related->saveInternal(null, $modelRelations, $this);
+                if ($related->getIsNewRecord() || (!in_array($related, $modelRelations, true) && $related->isModified))
+                    $related->saveInternal(null, $modelRelations);
 
                 Yii::trace('Saving a relation "' . $name . '" of type ' . get_class($relations[$name]) . ' in ' . get_class($this) . '.saveInternal()', 'ext.activedocument.Document');
                 $this->appendRelation($related, $name);
