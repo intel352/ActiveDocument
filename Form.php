@@ -4,6 +4,9 @@ namespace ext\activedocument;
 
 use CHtml, Yii;
 
+/**
+ * @todo Make this more dynamic, so that other form classes could be specified for Form to extend from
+ */
 Yii::registerAutoloader(function($class) {
     if (strcasecmp($class, 'ext\activedocument\FakeInheritForm') === 0) {
         if (Yii::getPathOfAlias('bootstrap.widgets.BootActiveForm')
