@@ -62,8 +62,15 @@ class Adapter extends \ext\activedocument\Adapter {
     protected function countInternal(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
 
-        $mr->map('function(){return [1];}');
-        $mr->reduce('Riak.reduceSum');
+        $mr->reduce('function(values){
+        if (values.length > 0) {
+            return [values.length];
+        }
+        else {
+            return [0];
+        }
+        }', array('arg'=>array('reduce_phase_only_1' => true)));
+
         $result = $mr->run();
         $result = array_shift($result);
         return $result;
@@ -111,8 +118,6 @@ class Adapter extends \ext\activedocument\Adapter {
      */
     protected function findInternal(\ext\activedocument\Criteria $criteria) {
         $mr = $this->applySearchFilters($criteria);
-
-        $mr->map('function(value){return [value];}');
 
         /**
          * Apply default sorting
@@ -306,6 +311,13 @@ class Adapter extends \ext\activedocument\Adapter {
                     ');
                 }
         }
+
+        $mr->map('function(value){
+        if(!value.not_found && !value.values[0].metadata["X-Riak-Deleted"]) {
+            return [value];
+        }
+        return [];
+        }');
 
         return $mr;
     }
