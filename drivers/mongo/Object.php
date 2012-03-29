@@ -72,22 +72,37 @@ class Object extends \ext\activedocument\Object {
     }
 
     /**
-     * @return null|string
+     * @return \MongoId|null|string
      */
     public function getKey() {
         if($this->_objectInstance instanceof \ArrayObject && isset($this->_objectInstance->_id))
-            return (string) $this->_objectInstance->_id;
-        return parent::getKey();
+            $key = $this->_objectInstance->_id;
+        else
+            $key = parent::getKey();
+        $key = $this->properId($key);
+
+        return $key;
     }
 
     /**
-     * @param string $value
+     * @param string|\MongoId $value
      */
     public function setKey($value) {
+        $value = $this->properId($value);
         if($this->_objectInstance instanceof \ArrayObject) {
             $this->_objectInstance->_id = $value;
-        }else
-            return parent::setKey($value);
+        }
+        return parent::setKey($value);
+    }
+
+    /**
+     * @param mixed $id
+     * @return \MongoId|mixed
+     */
+    protected function properId($id) {
+        if (is_string($id) && ($mId = new \MongoId($id)) && $id === (string) $mId)
+            return $mId;
+        return $id;
     }
 
     /**

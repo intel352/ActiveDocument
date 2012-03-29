@@ -63,8 +63,7 @@ class Object extends \ext\activedocument\Object {
     public function setKey($value) {
         if ($this->_objectInstance instanceof \riiak\Object)
             $this->_objectInstance->key = $value;
-        else
-            return parent::setKey($value);
+        return parent::setKey($value);
     }
 
     /**

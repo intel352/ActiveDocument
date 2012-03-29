@@ -118,14 +118,14 @@ abstract class Object extends \CComponent {
     }
 
     /**
-     * @return null|string
+     * @return null|mixed
      */
     public function getKey() {
         return $this->_key;
     }
 
     /**
-     * @param string $value
+     * @param mixed $value
      */
     public function setKey($value) {
         $this->_key = $value;
