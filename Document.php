@@ -416,8 +416,8 @@ abstract class Document extends CModel {
             return $this;
         }
 
-        if ((strncasecmp($name, 'on', 2) !== 0 || !$this->hasEvent($name)) &&
-            $this->hasEvent('onCallMissingMethod') && $this->getEventHandlers('onCallMissingMethod')->getCount() > 0
+        if ((strncasecmp($name, 'on', 2) !== 0 || !$this->hasEvent($name)) && $this->hasEvent('onCallMissingMethod')
+            && $this->getEventHandlers('onCallMissingMethod')->getCount() > 0
         ) {
             $this->onCallMissingMethod($event = new events\Magic($this, events\Magic::CALL, $name, $parameters));
             if ($event->handled)
@@ -458,8 +458,13 @@ abstract class Document extends CModel {
     public function getRelatedKeysByIndexName($name, $index) {
         $index  = array_combine((array)$index, (array)$index);
         $object = $this->getObject();
-        return array_map(function($index) use($name, $object) {
-            return isset($object->data[$name . '_' . $index]) ? $object->data[$name . '_' . $index] : array();
+        $relation = $this->getMetaData()->relations[$name];
+        return array_map(function($index) use($name, $object, $relation) {
+            return isset($object->data[$name . '_' . $index]) ?
+                array_map(function($key)use($relation){
+                    return Document::model($relation->className)->typecastPk($key);
+                }, $object->data[$name . '_' . $index]) :
+                array();
         }, $index);
     }
 
@@ -476,10 +481,14 @@ abstract class Document extends CModel {
         $pks    = array();
         $object = $this->getObject();
         $class  = get_class($this);
+        $relation = $this->getMetaData()->relations[$name];
         array_walk($indexes, function($indexValue, $index) use($name, $object, &$pks, $class) {
             $indexName = $name . '_' . $index;
             if ($indexValue === '' || $indexValue === null)
                 return;
+            /**
+             * @var Document $class
+             */
             $indexValue = $class::stringify($indexValue);
             if (!isset($object->data[$indexName][$indexValue]) || $object->data[$indexName][$indexValue] === array())
                 return;
@@ -487,27 +496,45 @@ abstract class Document extends CModel {
         });
         if ($pks === array())
             return array();
+        /**
+         * @todo Move this to a class method
+         */
+        $typecastPks = function($key)use($relation){
+            return Document::model($relation->className)->typecastPk($key);
+        };
+        $pks = array_map($typecastPks, $pks);
         if ($keys !== array())
-            array_push($pks, $keys);
+            array_push($pks, array_map($typecastPks, $keys));
         return count($pks) > 1 ? call_user_func_array('array_intersect', $pks) : array_shift($pks);
     }
 
+    /**
+     * @param string $name Relation name
+     * @return array|mixed|null
+     */
     public function getRelatedKeys($name) {
         $relation = $this->getMetaData()->relations[$name];
         if (!isset($this->getObject()->data[$name]) || !($relation instanceof Relation))
             return null;
 
         if ($relation instanceof HasManyRelation) {
-            $pks = $this->getObject()->data[$name];
             if ($relation->nested === true)
-                $pks = array_keys($pks);
-            return $pks;
+                return array_map(function(Document $obj){
+                    return $obj->getPrimaryKey();
+                }, $this->getRelated($name));
+            else
+                return array_map(function($key)use($relation){
+                    return Document::model($relation->className)->typecastPk($key);
+                }, $this->getObject()->data[$name]);
         } else {
             if ($relation->nested === true) {
-                if ($obj = $this->getRelated($name))
-                    return $obj->getEncodedPk();
+                if (($obj = $this->getRelated($name)))
+                    /**
+                     * @var Document $obj
+                     */
+                    return $obj->getPrimaryKey();
             } else
-                return self::stringify($this->getObject()->data[$name]);
+                return Document::model($relation->className)->typecastPk($this->getObject()->data[$name]);
         }
         return null;
     }
@@ -551,12 +578,13 @@ abstract class Document extends CModel {
      * @throws Exception if the relation is not specified in {@link relations}.
      */
     public function &getRelated($name, $refresh = false, array $params = array(), array $keys = array(), $criteria = array()) {
-        if ($keys !== array())
-            $keys = array_map(array('self', 'stringify'), $keys);
+        if ($keys !== array() && isset($this->getMetaData()->relations[$name]))
+            $keys = array_combine(array_map(array('self','stringify'), $keys),
+                array_map(array(Document::model($this->getMetaData()->relations[$name]->className), 'typecastPk'), $keys));
         if (!$refresh && $params === array() && $criteria === array() && (isset($this->_related[$name]) || array_key_exists($name, $this->_related))) {
             if ($keys !== array() && is_array($this->_related[$name])) {
                 $related = array_filter($this->_related[$name], function(Document $document) use($keys) {
-                    return in_array($document->getEncodedPk(), $keys);
+                    return in_array($document->getPrimaryKey(), $keys, true);
                 });
                 return $related;
             } else {
@@ -609,9 +637,12 @@ abstract class Document extends CModel {
                 Yii::trace('Loading nested ' . get_class($this) . '.' . $name, 'ext.activedocument.document.getRelated');
                 if ($relation instanceof HasManyRelation) {
                     if ($keys !== array())
-                        $data[$name] = array_intersect_key($data[$name], array_flip($keys));
-                    array_walk($data[$name], function(&$rel, $key) use($relation, $finder) {
-                        $rel = $finder->getContainer()->getObject($key, $rel, true);
+                        $data[$name] = array_intersect_key($data[$name], $keys);
+                    array_walk($data[$name], function(&$rel, $key) use($finder) {
+                        /**
+                         * @var Document $finder
+                         */
+                        $rel = $finder->getContainer()->getObject(null, $rel, true);
                     });
                     $this->_related[$name] = $finder->populateDocuments($data[$name]);
                 } else
@@ -623,12 +654,26 @@ abstract class Document extends CModel {
                     );
             } else {
                 if ($relation instanceof HasManyRelation) {
-                    $pks = $data[$name];
-                    if ($relation->nested === true)
-                        $pks = array_keys($pks);
-                    if ($keys !== array())
-                        $pks = array_intersect($pks, $keys);
-                    $this->_related[$name] = $finder->findAllByPk($pks, $_criteria, $params);
+                    if ($relation->nested === true) {
+                        if ($keys !== array())
+                            $data[$name] = array_intersect_key($data[$name], $keys);
+                        $pks = array_map(function($rel)use($finder){
+                            /**
+                             * @var Document $finder
+                             */
+                            $obj = $finder->populateDocument(
+                                $finder->getContainer()->getObject(null, $rel, true)
+                            );
+                            if ($obj!==null)
+                                return $obj->getPrimaryKey();
+                            return false;
+                        }, $data[$name]);
+                    } else {
+                        $pks = $data[$name];
+                        if ($keys !== array())
+                            $pks = array_intersect($pks, $keys);
+                    }
+                    $this->_related[$name] = $finder->findAllByPk(array_filter($pks), $_criteria, $params);
                 } elseif ($relation instanceof StatRelation) {
                     $this->_related[$name] = $finder->count($_criteria, $params);
                 } else {
@@ -640,7 +685,7 @@ abstract class Document extends CModel {
                             $finder->getContainer()->getObject(null, $data[$name], true)
                         );
                         if ($obj !== null)
-                            $this->_related[$name] = $finder->findByPk($obj->getEncodedPk(), $_criteria, $params);
+                            $this->_related[$name] = $finder->findByPk($obj->getPrimaryKey(), $_criteria, $params);
                     } else {
                         $this->_related[$name] = $finder->findByPk($data[$name], $_criteria, $params);
                     }
@@ -719,18 +764,39 @@ abstract class Document extends CModel {
 
     public function setAttribute($name, $value) {
         if (property_exists($this, $name))
-            $this->$name = $value;
+            $this->$name = $this->typecastAttribute($name, $value);
         else if (isset($this->getMetaData()->attributes->$name)) {
+            $this->_attributes[$name] = $this->typecastAttribute($name, $value);
+        } else
+            return false;
+        $this->_modifiedAttributes[] = $name;
+        return true;
+    }
+
+    public function typecastAttribute($name, $value) {
+        if (isset($this->getMetaData()->attributes->$name)) {
             /**
              * Typecast the value
              */
             if ($value !== null && $value !== '' && ($type = $this->getMetaData()->attributes->$name->type))
                 settype($value, $type);
-            $this->_attributes[$name] = $value;
-        } else
-            return false;
-        $this->_modifiedAttributes[] = $name;
-        return true;
+        }
+        return $value;
+    }
+
+    public function typecastPk($key) {
+        $pk = $this->primaryKey();
+        if ($pk === '_pk')
+            return $key;
+        if (is_string($pk))
+            $key = $this->typecastAttribute($pk, $key);
+        else {
+            foreach ($pk as $pkField) {
+                if (isset($key[$pkField]) && $key[$pkField]!=='')
+                    $key[$pkField] = $this->typecastAttribute($pkField, $key[$pkField]);
+            }
+        }
+        return $key;
     }
 
     public function getAttributes($names = true) {
@@ -813,18 +879,12 @@ abstract class Document extends CModel {
         if (is_string($pk))
             return $this->{$pk};
         else {
-            $isNull = true;
             $return = array();
             foreach ($pk as $pkField) {
-                $isNull           = $isNull && (is_null($this->{$pkField}) || $this->{$pkField} === '');
-                $return[$pkField] = is_null($this->{$pkField}) ? '' : $this->{$pkField};
+                if (!isset($this->{$pkField}) || $this->{$pkField} === '')
+                    return null;
+                $return[$pkField] = $this->{$pkField};
             }
-
-            /**
-             * If all pk values are empty/null, return null
-             */
-            if ($isNull)
-                return null;
             return $return;
         }
     }
@@ -839,12 +899,13 @@ abstract class Document extends CModel {
      * Method to ensure that $this->_pk is defined correctly
      */
     protected function ensurePk() {
-        if ($this->_pk === null) {
-            if ($this->primaryKey() !== '_pk' && $this->getPrimaryKey() !== null) {
-                $this->_pk = self::stringify($this->getPrimaryKey());
-            } elseif ($this->_object->getKey() !== null) {
-                $this->_pk = $this->_object->getKey();
-            }
+        if ($this->primaryKey()!=='_pk') {
+            $pk = $this->getPrimaryKey();
+            if (($pk=$this->getPrimaryKey()) !== null)
+                $pk = $this->typecastPk($pk);
+            $this->_pk = $pk;
+        } elseif ($this->_pk === null && $this->_object->getKey() !== null) {
+            $this->_pk = $this->_object->getKey();
         }
     }
 
@@ -853,7 +914,7 @@ abstract class Document extends CModel {
      */
     public function getEncodedPk() {
         $this->ensurePk();
-        return $this->_pk;
+        return ($this->_pk===null ? null : self::stringify($this->_pk));
     }
 
     /**
@@ -869,8 +930,12 @@ abstract class Document extends CModel {
     public static function stringify($var) {
         if (is_array($var))
             return \CJSON::encode(array_map(array('self', 'stringify'), $var));
-        if (is_object($var))
-            return \CJSON::encode($var);
+        if (is_object($var)) {
+            if (method_exists($var, '__toString'))
+                return $var->__toString();
+            else
+                return \CJSON::encode($var);
+        }
         return (string)$var;
     }
 
@@ -1190,7 +1255,7 @@ abstract class Document extends CModel {
                      * If the relation was already set, skip
                      */
                     if (isset($this->getObject()->data[$name]) && !$model->getIsNewRecord() &&
-                        ((!$relations[$name]->nested && in_array($model->getPrimaryKey(), $this->getObject()->data[$name])) ||
+                        ((!$relations[$name]->nested && in_array($model->getPrimaryKey(), $this->getObject()->data[$name], true)) ||
                             ($relations[$name]->nested && array_key_exists($model->encodedPk, $this->getObject()->data[$name]) &&
                                 !$model->isModified))
                     ) {
@@ -1364,16 +1429,19 @@ abstract class Document extends CModel {
          */
         $relation = $this->getMetaData()->relations->$relationName;
 
-        /**
-         * Remove autoindices
-         */
-        if ($relation->autoIndices !== array()) {
-            foreach ($relation->autoIndices as $index) {
-                $indexName = $relationName . '_' . $index;
-                if (isset($this->getObject()->data[$indexName]))
-                    unset($this->getObject()->data[$indexName]);
+        if ($relation instanceof HasManyRelation) {
+            /**
+             * Remove autoindices
+             */
+            if ($relation->autoIndices !== array()) {
+                foreach ($relation->autoIndices as $index) {
+                    $indexName = $relationName . '_' . $index;
+                    if (isset($this->getObject()->data[$indexName]))
+                        unset($this->getObject()->data[$indexName]);
+                }
             }
         }
+
         $this->_modifiedAttributes[] = $relationName;
     }
 
@@ -1481,6 +1549,9 @@ abstract class Document extends CModel {
     }
 
     protected function store(array $attributes = null) {
+        if ($this->primaryKey()!=='_pk' && !isset($this->_pk))
+            throw new Exception(Yii::t('yii', 'The document cannot be stored for '. get_class($this)
+                .'. A custom primary key is defined, and is empty!'));
         $attributes = $this->getAttributes($attributes);
         foreach ($attributes as $name => $value) {
             $this->_object->data[$name] = $value;
@@ -1499,13 +1570,14 @@ abstract class Document extends CModel {
         if (!$this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be inserted because it is not new.'));
         if ($this->beforeSave()) {
-            Yii::trace(get_class($this) . '.insert()', 'ext.activedocument.Document');
             $this->ensurePk();
+            Yii::trace(get_class($this) . '.insert('. \CVarDumper::dumpAsString($this->_pk) .')', 'ext.activedocument.Document');
             if ($this->store($attributes)) {
                 $this->_pk = $this->_object->getKey();
                 $this->afterSave();
                 $this->setIsNewRecord(false);
                 $this->setScenario('update');
+                Yii::trace(get_class($this) . ' inserted with PK: '. \CVarDumper::dumpAsString($this->_pk), 'ext.activedocument.Document');
                 return true;
             }
         }
@@ -1522,11 +1594,12 @@ abstract class Document extends CModel {
         if ($this->getIsNewRecord())
             throw new Exception(Yii::t('yii', 'The document cannot be updated because it is new.'));
         if ($this->beforeSave()) {
-            Yii::trace(get_class($this) . '.update()', 'ext.activedocument.Document');
             $this->ensurePk();
+            Yii::trace(get_class($this) . '.update('. \CVarDumper::dumpAsString($this->_pk) .')', 'ext.activedocument.Document');
             if ($this->store($attributes)) {
                 $this->_pk = $this->_object->getKey();
                 $this->afterSave();
+                Yii::trace(get_class($this) . ' updated with PK: '. \CVarDumper::dumpAsString($this->_pk), 'ext.activedocument.Document');
                 return true;
             }
         }
@@ -1690,8 +1763,8 @@ abstract class Document extends CModel {
         $this->beforeFind();
         $this->applyScopes($criteria);
 
-        if (!empty($keys))
-            $keys = array_map(array('self', 'stringify'), $keys);
+        if (!empty($keys) && $this->primaryKey()!=='_pk')
+            $keys = array_map(array($this, 'typecastPk'), $keys);
 
         $objects       = array();
         $emptyCriteria = new Criteria;
