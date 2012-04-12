@@ -5,6 +5,9 @@ namespace ext\activedocument;
 use \Yii,
 \CComponent;
 
+/**
+ * @property mixed|null $key
+ */
 abstract class Object extends \CComponent {
 
     /**
@@ -23,7 +26,7 @@ abstract class Object extends \CComponent {
     protected $_container;
 
     /**
-     * @var string
+     * @var mixed
      */
     private $_key;
 
@@ -136,7 +139,7 @@ abstract class Object extends \CComponent {
      */
     public function store() {
         if ($this->getConnection()->enableProfiling) {
-            $profileToken = 'ext.activedocument.execute.storeObject(Storing object with key: "'.$this->getKey().'")';
+            $profileToken = 'ext.activedocument.execute.storeObject(Storing object with key: '.\CVarDumper::dumpAsString($this->getKey()).')';
             Yii::beginProfile($profileToken, 'ext.activedocument.execute.storeObject');
         }
 
@@ -153,7 +156,7 @@ abstract class Object extends \CComponent {
      */
     public function delete() {
         if ($this->getConnection()->enableProfiling) {
-            $profileToken = 'ext.activedocument.execute.deleteObject(Deleting object with key: "'.$this->getKey().'")';
+            $profileToken = 'ext.activedocument.execute.deleteObject(Deleting object with key: '.\CVarDumper::dumpAsString($this->getKey()).')';
             Yii::beginProfile($profileToken, 'ext.activedocument.execute.deleteObject');
         }
 
@@ -170,7 +173,7 @@ abstract class Object extends \CComponent {
      */
     public function reload() {
         if ($this->getConnection()->enableProfiling) {
-            $profileToken = 'ext.activedocument.query.reloadObject(Reloading object with key: "'.$this->getKey().'")';
+            $profileToken = 'ext.activedocument.query.reloadObject(Reloading object with key: '.\CVarDumper::dumpAsString($this->getKey()).')';
             Yii::beginProfile($profileToken, 'ext.activedocument.query.reloadObject');
         }
 
