@@ -41,7 +41,7 @@ class Container extends \ext\activedocument\Container {
 
     public function deleteKeys(array $keys) {
         try {
-            $this->_containerInstance->remove(array('_id'=>array('$in'=>$keys)), array('safe'=>true));
+            $this->_containerInstance->remove(array('_id'=>array('$in'=>array_map(array('Object', 'properId'), $keys))), array('safe'=>true));
         }catch(\MongoException $e) {
             /**
              * @todo Throw custom exception

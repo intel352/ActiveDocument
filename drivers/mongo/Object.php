@@ -9,8 +9,10 @@ class Object extends \ext\activedocument\Object {
 
     protected function loadObjectInstance($new = true) {
         $data = null;
-        if ($this->getKey() !== null && !$new)
+        if ($this->getKey() !== null && !$new) {
+            \Yii::trace('Mongo FindByPk query: ' . \CVarDumper::dumpAsString($this->getKey()), 'ext.activedocument.drivers.mongo.Object');
             $data = $this->_container->getContainerInstance()->findOne(array('_id' => $this->getKey()));
+        }
         if ($data == null)
             $data = array();
         return new \ArrayObject($data, \ArrayObject::ARRAY_AS_PROPS);
@@ -79,7 +81,8 @@ class Object extends \ext\activedocument\Object {
             $key = $this->_objectInstance->_id;
         else
             $key = parent::getKey();
-        $key = $this->properId($key);
+        $key = self::properId($key);
+        \Yii::trace('Mongo getKey(): ' . \CVarDumper::dumpAsString($key), 'ext.activedocument.drivers.mongo.Object');
 
         return $key;
     }
@@ -88,7 +91,8 @@ class Object extends \ext\activedocument\Object {
      * @param string|\MongoId $value
      */
     public function setKey($value) {
-        $value = $this->properId($value);
+        $value = self::properId($value);
+        \Yii::trace('Mongo setKey(): ' . \CVarDumper::dumpAsString($value), 'ext.activedocument.drivers.mongo.Object');
         if($this->_objectInstance instanceof \ArrayObject) {
             $this->_objectInstance->_id = $value;
         }
@@ -99,8 +103,12 @@ class Object extends \ext\activedocument\Object {
      * @param mixed $id
      * @return \MongoId|mixed
      */
-    protected function properId($id) {
-        if (is_string($id) && ($mId = new \MongoId($id)) && $id === (string) $mId)
+    public static function properId($id) {
+        if ($id === null)
+            return $id;
+        if (is_array($id) && isset($id['$id']))
+            return new \MongoId($id['$id']);
+        elseif (is_string($id) && ($mId = new \MongoId($id)) && $id === (string) $mId)
             return $mId;
         return $id;
     }

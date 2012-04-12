@@ -102,6 +102,7 @@ class Adapter extends \ext\activedocument\Adapter {
 
         $objects = array();
         if ($info = $cursor->info()) {
+            \Yii::trace('Mongo Find query: ' . \CVarDumper::dumpAsString($info), 'ext.activedocument.drivers.mongo.Adapter');
             $container = array_pop(explode('.', $info['ns']));
             iterator_apply($cursor, array($this, 'iterateObjects'), array($cursor, &$objects, $container));
         }
@@ -109,7 +110,8 @@ class Adapter extends \ext\activedocument\Adapter {
     }
 
     protected function iterateObjects(\MongoCursor $cursor, &$objects, $container) {
-        array_push($objects, $this->populateObject($container, $cursor->key(), $cursor->current()));
+        $current = $cursor->current();
+        array_push($objects, $this->populateObject($container, $current['_id'], $current));
         return true;
     }
 
@@ -133,7 +135,7 @@ class Adapter extends \ext\activedocument\Adapter {
                 if ($input['container'] == $collection && !empty($input['key'])) {
                     if (!isset($query['_id']))
                         $query['_id'] = array();
-                    $query['_id'][] = $input['key'];
+                    $query['_id'][] = Object::properId($input['key']);
                 }
             }
         }
