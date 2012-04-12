@@ -61,6 +61,8 @@ class Object extends \ext\activedocument\Object {
     }
 
     public function setKey($key) {
+        if (!is_int($key) && !is_string($key))
+            $key = \ext\activedocument\Document::stringify($key);
         return parent::setKey($this->updateObjectPosition($key));
     }
 
