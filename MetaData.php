@@ -36,6 +36,7 @@ class MetaData extends CComponent {
      * @var \ArrayObject
      */
     protected $_classMeta;
+    protected $_docAttributeRegex = '/\@(?<attribute>\w+)(?<!property|property-read|property-write|var)\s+(?:(\$)\w+\:\s)?\s*(?<value>[^\s]+)\s+\2?\s*(?<comment>.*)?/';
 
     /**
      * @var \ArrayObject
@@ -89,9 +90,9 @@ class MetaData extends CComponent {
         ), \ArrayObject::ARRAY_AS_PROPS);
 
         /**
-         * Parse class phpdoc
+         * Parse class phpdoc (also detects magic properties)
          */
-        $this->parsePhpDoc($reflectionClass->getDocComment());
+        #$this->parsePhpDoc($reflectionClass->getDocComment());
 
         /**
          * Get physical class properties & metadata from phpdoc if available
@@ -155,6 +156,8 @@ class MetaData extends CComponent {
             /**
              * Parse class meta
              */
+            if ($property === null)
+                array_walk($phpdoc, array($this, 'parsePhpDocAttributes'));
             array_walk($phpdoc, array($this, 'parsePhpDocProperties'), $property);
         }
     }
@@ -184,6 +187,21 @@ class MetaData extends CComponent {
                 $var = trim($var, " \t\r\n\0\x0B*");
             });
         return $phpdoc;
+    }
+
+    /**
+     * Parses phpdoc text to find general pattern of "attribute value comment"
+     *
+     * @param string $string Line of phpdoc
+     * @param int    $index
+     */
+    protected function parsePhpDocAttributes($string, $index) {
+        if (preg_match($this->_docAttributeRegex, $string, $matches)) {
+            $matches = array_intersect_key($matches, array('attribute' => null, 'value' => null, 'comment' => null));
+
+            if (!array_key_exists($matches['attribute'], $this->_classMeta))
+                $this->_classMeta->{$matches['attribute']} = new \ArrayObject($matches, \ArrayObject::ARRAY_AS_PROPS);
+        }
     }
 
     /**
