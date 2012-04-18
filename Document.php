@@ -836,6 +836,9 @@ abstract class Document extends CModel {
     public function setAttributes($values, $safeOnly = true) {
         if (!is_array($values))
             return;
+        /**
+         * @todo Intersect keys from $values against attribute names, to properly mark attributes as modified
+         */
         $this->_modifiedAttributes += $safeOnly ? $this->getSafeAttributeNames() : $this->attributeNames();
         return parent::setAttributes($values, $safeOnly);
     }
