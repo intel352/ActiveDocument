@@ -1,0 +1,2 @@
+intel352 = Jon Langevin <intel352@gmail.com>
+kbrintle = Kelly Brintle <kbrintle@gmail.com>
